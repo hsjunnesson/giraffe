@@ -43,6 +43,9 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/chocolate")
 
 set(SRC_giraffe
     "src/main.cpp"
+    "src/game.h"
+    "src/game.cpp"
+    "src/game_state_playing.cpp"
 )
 
 
