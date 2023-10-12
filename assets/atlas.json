@@ -1,7 +1,7 @@
 {"frames": [
 
 {
-	"filename": "giraffe.png",
+	"filename": "giraffe",
 	"frame": {"x":0,"y":0,"w":36,"h":80},
 	"rotated": false,
 	"trimmed": false,
@@ -9,7 +9,7 @@
 	"sourceSize": {"w":36,"h":80}
 },
 {
-	"filename": "lion.png",
+	"filename": "lion",
 	"frame": {"x":36,"y":0,"w":68,"h":56},
 	"rotated": false,
 	"trimmed": false,

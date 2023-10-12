@@ -1,12 +1,43 @@
 #include "game.h"
 
+#include "rnd.h"
+
 #include <engine/action_binds.h>
 #include <engine/input.h>
+#include <engine/sprites.h>
+#include <engine/color.inl>
+#include <engine/math.inl>
+
 #include <hash.h>
 #include <murmur_hash.h>
 
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/norm.hpp>
+#include <glm/gtx/transform.hpp>
+
+namespace {
+rnd_pcg_t random_device;
+
+} // namespace
+
 namespace game {
+using namespace math;
 using namespace foundation;
+
+/// Utility to add a sprite to the game.
+uint64_t add_sprite(engine::Sprites &sprites, const char *sprite_name, const int32_t x, const int32_t y, const float z_layer, Color4f color = engine::color::white) {
+    const engine::Sprite sprite = engine::add_sprite(sprites, sprite_name);
+
+    glm::mat4 transform = glm::mat4(1.0f);
+    transform = glm::translate(transform, {x, y, z_layer});
+    transform = glm::scale(transform, glm::vec3(sprite.atlas_rect->size.x, sprite.atlas_rect->size.y, 1));
+    engine::transform_sprite(sprites, sprite.id, Matrix4f(glm::value_ptr(transform)));
+    engine::color_sprite(sprites, sprite.id, color);
+
+    return sprite.id;
+}
 
 void game_state_playing_enter(engine::Engine &engine, Game &game) {
     (void)engine;
@@ -46,14 +77,47 @@ void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::Inp
 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
     (void)engine;
-    (void)game;
-    (void)t;
-    (void)dt;
+
+	if (array::size(game.giraffes) < 500) {
+		for (int i = 0; i < 10; ++i) {
+			const uint64_t sprite_id = add_sprite(*game.sprites, "giraffe", 64, 64, -1, engine::color::pico8::orange);
+			Mob *mob = MAKE_NEW(game.allocator, Mob);
+            mob->sprite_id = sprite_id;
+			mob->x = 64.0f;
+			mob->y = 64.0f;
+			mob->x_vel = 1.0f;
+			mob->y_vel = 0.0f;
+			array::push_back(game.giraffes, mob);
+		}
+	}
+
+	if (array::size(game.lions) < 10) {
+		for (int i = 0; i < 10; ++i) {
+            const uint64_t sprite_id = add_sprite(*game.sprites, "lion", 640, 64, -1, engine::color::pico8::yellow);
+			Mob *mob = MAKE_NEW(game.allocator, Mob);
+			mob->sprite_id = sprite_id;
+			array::push_back(game.lions, mob);
+		}
+	}
+
+	for (Mob **it = array::begin(game.giraffes); it != array::end(game.giraffes); ++it) {
+		Mob *mob = *it;
+		float offset_x = mob->x_vel * dt;
+		float offset_y = mob->y_vel * dt;
+		mob->x += offset_x;
+		mob->y += offset_y;
+		const engine::Sprite *sprite = engine::get_sprite(*game.sprites, mob->sprite_id);
+        glm::mat4 transform = glm::make_mat4(sprite->transform.m);
+		transform = glm::translate(transform, glm::vec3(offset_x, offset_y, 0.0f));
+		engine::transform_sprite(*game.sprites, mob->sprite_id, Matrix4f(glm::value_ptr(transform)));
+	}
+
+	engine::update_sprites(*game.sprites, t, dt);
+	engine::commit_sprites(*game.sprites);
 }
 
 void game_state_playing_render(engine::Engine &engine, Game &game) {
-    (void)engine;
-    (void)game;
+	engine::render_sprites(engine, *game.sprites);
 }
 
 void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {

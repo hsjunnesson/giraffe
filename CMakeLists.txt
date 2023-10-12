@@ -46,6 +46,8 @@ set(SRC_giraffe
     "src/game.h"
     "src/game.cpp"
     "src/game_state_playing.cpp"
+    "src/rnd.h"
+    "src/util.h"
 )
 
 

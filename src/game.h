@@ -44,6 +44,15 @@ enum class AppState {
     Terminate,
 };
 
+struct Mob {
+	uint64_t sprite_id = 0;
+	float x = 0.0f;
+	float y = 0.0f;
+	float x_vel = 0.0f;
+	float y_vel = 0.0f;
+	bool flip = false;
+};
+
 struct Game {
     Game(foundation::Allocator &allocator, const char *config_path);
     ~Game();
@@ -53,6 +62,9 @@ struct Game {
     AppState app_state;
     engine::ActionBinds *action_binds;
     engine::Sprites *sprites;
+
+	foundation::Array<Mob *> giraffes;
+	foundation::Array<Mob *> lions;
 };
 
 /**

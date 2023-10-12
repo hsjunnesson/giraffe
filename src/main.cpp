@@ -1,3 +1,6 @@
+#define RND_IMPLEMENTATION
+#include "rnd.h"
+
 #pragma warning(push, 0)
 #include <engine/engine.h>
 #include <engine/input.h>
