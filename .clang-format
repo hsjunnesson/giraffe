@@ -1,0 +1,8 @@
+---
+Language:        Cpp
+# BasedOnStyle:  LLVM
+ColumnLimit:     0
+IndentWidth:     4
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerIndentWidth: 0
+...
