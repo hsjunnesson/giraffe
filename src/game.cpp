@@ -31,7 +31,7 @@ Game::Game(Allocator &allocator, const char *config_path)
 , app_state(AppState::None)
 , action_binds(nullptr)
 , sprites(nullptr)
-, mobs(allocator)
+, giraffes(allocator)
 , obstacles(allocator)
 , arrival_position({0, 0}) {
     action_binds = MAKE_NEW(allocator, engine::ActionBinds, allocator, config_path);

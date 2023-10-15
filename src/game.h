@@ -47,13 +47,6 @@ enum class AppState {
 };
 
 struct Mob {
-    enum class Type {
-        Giraffe,
-        Lion
-    };
-
-    uint64_t sprite_id = 0;
-    Type type = Type::Giraffe;
     float mass = 100.0f;
     glm::vec2 position = {0.0f, 0.0f};
     glm::vec2 velocity = {0.0f, 0.0f};
@@ -62,6 +55,11 @@ struct Mob {
     float max_speed = 30.0f;
     float orientation = 0.0f;
     float radius = 10.0f;
+};
+
+struct Giraffe {
+    uint64_t sprite_id = 0;
+    Mob mob;
 };
 
 struct Obstacle {
@@ -79,7 +77,7 @@ struct Game {
     engine::ActionBinds *action_binds;
     engine::Sprites *sprites;
 
-    foundation::Array<Mob> mobs;
+    foundation::Array<Giraffe> giraffes;
     foundation::Array<Obstacle> obstacles;
 
     glm::vec2 arrival_position;
