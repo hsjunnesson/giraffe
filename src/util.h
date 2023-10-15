@@ -11,6 +11,35 @@
     T(T &&) = delete;                 \
     T &operator=(T &&) = delete;
 
+inline bool ray_circle_intersection(const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 circle_center, float circle_radius, glm::vec2 &intersection) {
+    glm::vec2 ray_dir = glm::normalize(ray_direction);
+
+    // Check if origin is inside the circle
+    if (glm::length(ray_origin - circle_center) <= circle_radius) {
+        intersection = ray_origin;
+        return true;
+    }
+
+    // Compute the nearest point on the ray to the circle's center
+    float t = glm::dot(circle_center - ray_origin, ray_dir);
+
+    if (t < 0.0f) {
+        return false;
+    }
+    
+    glm::vec2 P = ray_origin + t * ray_dir;
+
+    // If the nearest point is inside the circle, calculate intersection
+    if (glm::length(P - circle_center) <= circle_radius) {
+        // Distance from P to circle boundary along the ray
+        float h = sqrt(circle_radius * circle_radius - glm::length(P - circle_center) * glm::length(P - circle_center));
+        intersection = P - h * ray_dir;
+        return true;
+    }
+
+    return false;
+}
+
 inline bool circles_overlap(const glm::vec2 p1, const glm::vec2 p2, float r1, float r2) {
     float dx = p2.x - p1.x;
     float dy = p2.y - p1.y;

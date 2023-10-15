@@ -25,11 +25,13 @@
 #include <algorithm>
 #include <imgui.h>
 #include <time.h>
+#include <limits.h>
 
 namespace {
 rnd_pcg_t random_device;
 const int32_t z_layer = -1;
-bool debug_draw = false;
+bool debug_draw = true;
+
 } // namespace
 
 namespace game {
@@ -72,7 +74,7 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
     const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
     assert(giraffe_frame);
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 1; ++i) {
         Giraffe giraffe;
         giraffe.mob.mass = 50.0f;
         giraffe.mob.max_force = 1000.0f;
@@ -168,13 +170,103 @@ void update_mob(Mob &mob, float dt) {
 }
 
 void update_giraffe(Giraffe &giraffe, Game &game, float dt) {
+    glm::vec2 arrival_force = {0.0f, 0.0f};
+    const float arrival_weight = 1.0f;
+
+    glm::vec2 separation_force = {0.0f, 0.0f};
+    const float separation_weight = 5.0f;
+
+    glm::vec2 avoidance_force = {0.0f, 0.0f};
+    const float avoidance_weight = 3.0f;
+
     // arrival
-    glm::vec2 target_offset = game.arrival_position - giraffe.mob.position;
-    float distance = glm::length(target_offset);
-    float ramped_speed = giraffe.mob.max_speed * (distance / 100.0f);
-    float clipped_speed = std::min(ramped_speed, giraffe.mob.max_speed);
-    glm::vec2 desired_velocity = (clipped_speed / distance) * target_offset;
-    giraffe.mob.steering_direction = desired_velocity - giraffe.mob.velocity;
+    {
+        const glm::vec2 target_offset = game.arrival_position - giraffe.mob.position;
+        const float distance = glm::length(target_offset);
+        const float ramped_speed = giraffe.mob.max_speed * (distance / 100.0f);
+        const float clipped_speed = std::min(ramped_speed, giraffe.mob.max_speed);
+        const glm::vec2 desired_velocity = (clipped_speed / distance) * target_offset;
+        arrival_force = desired_velocity - giraffe.mob.velocity;
+        arrival_force *= arrival_weight;
+    }
+
+    // separation
+    {
+        for (Giraffe *other_giraffe = array::begin(game.giraffes); other_giraffe != array::end(game.giraffes); ++other_giraffe) {
+            if (other_giraffe != &giraffe) {
+                glm::vec2 offset = other_giraffe->mob.position - giraffe.mob.position;
+                const float distance = glm::length(offset);
+                const float near_distance = giraffe.mob.radius + other_giraffe->mob.radius;
+                if (distance <= near_distance) {
+                    offset /= distance;
+                    offset *= near_distance;
+                    separation_force -= offset;
+                }
+            }
+        }
+
+        separation_force *= separation_weight;
+    }
+
+    // avoidance
+    {
+        const float look_ahead_distance = 200.0f;
+
+        const glm::vec2 origin = giraffe.mob.position;
+        const glm::vec2 forward = glm::normalize(game.arrival_position - origin);
+
+        const glm::vec2 right_vector = {forward.y, -forward.x};
+        const glm::vec2 left_vector = {-forward.y, forward.x};
+
+        const glm::vec2 left_start = origin + left_vector * giraffe.mob.radius;
+        const glm::vec2 right_start = origin + right_vector * giraffe.mob.radius;
+
+        bool left_intersects = false;
+        glm::vec2 left_intersection;
+        float left_intersection_distance = FLT_MAX;
+
+        bool right_intersects = false;
+        glm::vec2 right_intersection;
+        float right_intersection_distance = FLT_MAX;
+
+        for (Obstacle *obstacle = array::begin(game.obstacles); obstacle != array::end(game.obstacles); ++obstacle) {
+            glm::vec2 li;
+            bool did_li = ray_circle_intersection(left_start, forward, obstacle->position, obstacle->radius, li);
+            if (did_li) {
+                float distance = glm::length(li - left_start);
+                if (distance <= look_ahead_distance && distance < left_intersection_distance) {
+                    left_intersects = true;
+                    left_intersection = li;
+                    left_intersection_distance = distance;
+                }
+            }
+
+            glm::vec2 ri;
+            bool did_ri = ray_circle_intersection(right_start, forward, obstacle->position, obstacle->radius, ri);
+            if (did_ri) {
+                float distance = glm::length(ri - right_start);
+                if (distance <= look_ahead_distance && distance < right_intersection_distance) {
+                    right_intersects = true;
+                    right_intersection = li;
+                    right_intersection_distance = distance;
+                }
+            }
+        }
+
+        if (right_intersects || left_intersects) {
+            if (left_intersection_distance < right_intersection_distance) {
+                float ratio = look_ahead_distance / left_intersection_distance;
+                avoidance_force = right_vector * (10.0f * ratio);
+            } else {
+                float ratio = look_ahead_distance / right_intersection_distance;
+                avoidance_force = left_vector * (10.0f * ratio);
+            }
+
+            avoidance_force *= avoidance_weight;
+        }
+    }
+
+    giraffe.mob.steering_direction = truncate(arrival_force + separation_force + avoidance_force, giraffe.mob.max_force);
 
     update_mob(giraffe.mob, dt);
 
@@ -250,6 +342,25 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
                 array::clear(ss);
                 string_stream::printf(ss, "veloc: %.0f", glm::length(vel));
                 draw_list->AddText(ImVec2(origin.x, origin.y + 20), IM_COL32(0, 255, 0, 255), string_stream::c_str(ss));
+            }
+
+            // avoidance
+            {
+                glm::vec2 forward = glm::normalize(mob.velocity);
+                forward.y *= -1;
+                glm::vec2 look_ahead = origin + forward * 200.0f;
+
+                glm::vec2 right_vector = {-forward.y, forward.x};
+                glm::vec2 left_vector = {forward.y, -forward.x};
+
+                glm::vec2 left_start = origin + left_vector * mob.radius;
+                glm::vec2 left_end = look_ahead + left_vector * mob.radius;
+
+                glm::vec2 right_start = origin + right_vector * mob.radius;
+                glm::vec2 right_end = look_ahead + right_vector * mob.radius;
+
+                draw_list->AddLine(ImVec2(left_start.x, left_start.y), ImVec2(left_end.x, left_end.y), IM_COL32(255, 255, 0, 255));
+                draw_list->AddLine(ImVec2(right_start.x, right_start.y), ImVec2(right_end.x, right_end.y), IM_COL32(255, 255, 0, 255));
             }
 
             // radius
