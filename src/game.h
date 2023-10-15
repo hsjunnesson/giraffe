@@ -3,8 +3,8 @@
 #pragma warning(push, 0)
 #include "collection_types.h"
 #include "memory_types.h"
-#include <stdint.h>
 #include <glm/glm.hpp>
+#include <stdint.h>
 #pragma warning(pop)
 
 typedef struct ini_t ini_t;
@@ -51,13 +51,13 @@ struct Mob {
         Giraffe,
         Lion
     };
-    
-	uint64_t sprite_id = 0;
+
+    uint64_t sprite_id = 0;
     Type type = Type::Giraffe;
     float mass = 100.0f;
-    glm::vec2 position = { 0.0f, 0.0f };
-    glm::vec2 velocity = { 0.0f, 0.0f };
-    glm::vec2 steering_direction = { 0.0f, 0.0f };
+    glm::vec2 position = {0.0f, 0.0f};
+    glm::vec2 velocity = {0.0f, 0.0f};
+    glm::vec2 steering_direction = {0.0f, 0.0f};
     float max_force = 30.0f;
     float max_speed = 30.0f;
     float orientation = 0.0f;
@@ -79,7 +79,7 @@ struct Game {
     engine::ActionBinds *action_binds;
     engine::Sprites *sprites;
 
-	foundation::Array<Mob> mobs;
+    foundation::Array<Mob> mobs;
     foundation::Array<Obstacle> obstacles;
 
     glm::vec2 arrival_position;

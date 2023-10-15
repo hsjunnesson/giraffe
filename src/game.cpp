@@ -1,12 +1,12 @@
 #include "game.h"
 
 #include <engine/action_binds.h>
+#include <engine/config.h>
 #include <engine/engine.h>
 #include <engine/file.h>
+#include <engine/ini.h>
 #include <engine/log.h>
 #include <engine/sprites.h>
-#include <engine/config.h>
-#include <engine/ini.h>
 
 #include <memory.h>
 #include <string_stream.h>

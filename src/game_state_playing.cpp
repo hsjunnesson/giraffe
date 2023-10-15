@@ -3,14 +3,14 @@
 #include "rnd.h"
 #include "util.h"
 
-#include <engine/engine.h>
 #include <engine/action_binds.h>
-#include <engine/input.h>
-#include <engine/sprites.h>
-#include <engine/color.inl>
-#include <engine/math.inl>
 #include <engine/atlas.h>
+#include <engine/color.inl>
+#include <engine/engine.h>
+#include <engine/input.h>
 #include <engine/log.h>
+#include <engine/math.inl>
+#include <engine/sprites.h>
 
 #include <hash.h>
 #include <murmur_hash.h>
@@ -22,9 +22,9 @@
 #include <glm/gtx/norm.hpp>
 #include <glm/gtx/transform.hpp>
 
-#include <time.h>
 #include <algorithm>
 #include <imgui.h>
+#include <time.h>
 
 namespace {
 rnd_pcg_t random_device;
@@ -53,17 +53,16 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
     (void)engine;
     (void)game;
 
-	time_t seconds;
-	time(&seconds);
-	rnd_pcg_seed(&random_device, (RND_U32)seconds);
+    time_t seconds;
+    time(&seconds);
+    rnd_pcg_seed(&random_device, (RND_U32)seconds);
 
     // Spawn obstacles
     for (int i = 0; i < 8; ++i) {
         Obstacle obstacle;
         obstacle.position = {
             100.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.x - 200.0f),
-            100.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.y - 200.0f)
-        };
+            100.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.y - 200.0f)};
         obstacle.radius = 50.0f + rnd_pcg_nextf(&random_device) * 100.0f;
 
         array::push_back(game.obstacles, obstacle);
@@ -91,13 +90,11 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
 
             giraffe.position = {
                 50.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.x - 100.0f),
-                50.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.y - 100.0f)
-            };
+                50.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.y - 100.0f)};
 
             glm::vec2 pos = giraffe.position + glm::vec2(
-                giraffe_frame->rect.size.x * giraffe_frame->pivot.x,
-                giraffe_frame->rect.size.y * (1.0f - giraffe_frame->pivot.y)
-            );
+                                                   giraffe_frame->rect.size.x * giraffe_frame->pivot.x,
+                                                   giraffe_frame->rect.size.y * (1.0f - giraffe_frame->pivot.y));
 
             is_valid = true;
 
@@ -168,7 +165,6 @@ void update_mobs(Game &game, float dt) {
             glm::vec2 desired_velocity = (clipped_speed / distance) * target_offset;
             mob->steering_direction = desired_velocity - mob->velocity;
 
-
             break;
         }
         case Mob::Type::Lion: {
@@ -182,7 +178,7 @@ void update_locomotion(Game &game, float dt) {
     const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
     assert(giraffe_frame);
 
-	const engine::AtlasFrame *lion_frame = engine::atlas_frame(*game.sprites->atlas, "lion");
+    const engine::AtlasFrame *lion_frame = engine::atlas_frame(*game.sprites->atlas, "lion");
     assert(lion_frame);
 
     float drag = 1.0f;
@@ -202,76 +198,49 @@ void update_locomotion(Game &game, float dt) {
         glm::mat4 transform = glm::mat4(1.0f);
 
         switch (mob->type) {
-        case Mob::Type::Giraffe:
-    		transform = glm::translate(transform, glm::vec3(
-                floorf(mob->position.x - giraffe_frame->rect.size.x * giraffe_frame->pivot.x),
-                floorf(mob->position.y - giraffe_frame->rect.size.y * (1.0f - giraffe_frame->pivot.y)),
-                z_layer
-            ));
-            transform = glm::scale(transform, {giraffe_frame->rect.size.x, giraffe_frame->rect.size.y, 1.0f});
-            break;
-        case Mob::Type::Lion:
-    		transform = glm::translate(transform, glm::vec3(
-                floorf(mob->position.x - lion_frame->rect.size.x * lion_frame->pivot.x),
-                floorf(mob->position.y - lion_frame->rect.size.y * (1.0f - lion_frame->pivot.y)),
-                z_layer
-            ));
-            transform = glm::scale(transform, {lion_frame->rect.size.x, lion_frame->rect.size.y, 1.0f});
+        case Mob::Type::Giraffe: {
+            bool flip = mob->velocity.x <= 0.0f;
+            float x_offset = giraffe_frame->rect.size.x * giraffe_frame->pivot.x;
+            if (flip) {
+                x_offset *= -1.0f;
+            }
+            transform = glm::translate(transform, glm::vec3(
+                                                      floorf(mob->position.x - x_offset),
+                                                      floorf(mob->position.y - giraffe_frame->rect.size.y * (1.0f - giraffe_frame->pivot.y)),
+                                                      z_layer));
+            transform = glm::scale(transform, {(flip ? -1.0f : 1.0f) * giraffe_frame->rect.size.x, giraffe_frame->rect.size.y, 1.0f});
             break;
         }
+        case Mob::Type::Lion: {
+            bool flip = mob->velocity.x <= 0.0f;
+            float x_offset = lion_frame->rect.size.x * lion_frame->pivot.x;
+            if (flip) {
+                x_offset *= -1.0f;
+            }
+            transform = glm::translate(transform, glm::vec3(
+                                                      floorf(mob->position.x - x_offset),
+                                                      floorf(mob->position.y - lion_frame->rect.size.y * (1.0f - lion_frame->pivot.y)),
+                                                      z_layer));
+            transform = glm::scale(transform, {(flip ? -1.0f : 1.0f) * lion_frame->rect.size.x, lion_frame->rect.size.y, 1.0f});
+            break;
+        }
+        }
 
-		engine::transform_sprite(*game.sprites, mob->sprite_id, Matrix4f(glm::value_ptr(transform)));
+        engine::transform_sprite(*game.sprites, mob->sprite_id, Matrix4f(glm::value_ptr(transform)));
     }
 }
 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
     (void)engine;
-    
-    /*
-	if (array::size(game.giraffes) < 10) {
-		for (int i = 0; i < 10; ++i) {
-			const engine::Sprite sprite = engine::add_sprite(*game.sprites, "giraffe", engine::color::pico8::orange);
-            Mob giraffe
-			Mob *mob = MAKE_NEW(game.allocator, Mob);
-			mob->sprite_id = sprite.id;
-            mob->position.x = 500.0f + (rnd_pcg_nextf(&random_device) * 64.0f - 32.0f);
-            mob->position.y = 500.0f + (rnd_pcg_nextf(&random_device) * 64.0f - 32.0f);
-			array::push_back(game.giraffes, mob);
-		}
-	}
 
-//	if (array::size(game.lions) < 10) {
-//		for (int i = 0; i < 10; ++i) {
-//            const uint64_t sprite_id = add_sprite(*game.sprites, "lion", 640, 64, -1, engine::color::pico8::yellow);
-//			Mob *mob = MAKE_NEW(game.allocator, Mob);
-//			mob->sprite_id = sprite_id;
-//			array::push_back(game.lions, mob);
-//		}
-//	}
-
-	const math::Rect *giraffe_rect = engine::atlas_rect(*game.sprites->atlas, "giraffe");
-	assert(giraffe_rect);
-
-	for (Mob **it = array::begin(game.giraffes); it != array::end(game.giraffes); ++it) {
-		Mob *mob = *it;
-		mob->x += mob->x_vel * dt;
-		mob->y += mob->y_vel * dt;
-
-		glm::mat4 transform = glm::mat4(1.0f);
-		transform = glm::translate(transform, {floorf(mob->x), floorf(mob->y), z_layer});
-		transform = glm::scale(transform, glm::vec3(giraffe_rect->size.x, giraffe_rect->size.y, 1));
-		engine::transform_sprite(*game.sprites, mob->sprite_id, Matrix4f(glm::value_ptr(transform)));
-	}
-    */
-    
     update_mobs(game, dt);
     update_locomotion(game, dt);
-	engine::update_sprites(*game.sprites, t, dt);
-	engine::commit_sprites(*game.sprites);
+    engine::update_sprites(*game.sprites, t, dt);
+    engine::commit_sprites(*game.sprites);
 }
 
 void game_state_playing_render(engine::Engine &engine, Game &game) {
-	engine::render_sprites(engine, *game.sprites);
+    engine::render_sprites(engine, *game.sprites);
 }
 
 void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
