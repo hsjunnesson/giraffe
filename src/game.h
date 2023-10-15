@@ -4,6 +4,7 @@
 #include "collection_types.h"
 #include "memory_types.h"
 #include <stdint.h>
+#include <glm/glm.hpp>
 #pragma warning(pop)
 
 typedef struct ini_t ini_t;
@@ -21,6 +22,7 @@ namespace game {
 enum class ActionHash : uint64_t {
     NONE = 0x0ULL,
     QUIT = 0x387bbb994ac3551ULL,
+    DEBUG_DRAW = 0xe211fdfdbc9f06a0ULL,
 };
 
 /**
@@ -45,12 +47,26 @@ enum class AppState {
 };
 
 struct Mob {
+    enum class Type {
+        Giraffe,
+        Lion
+    };
+    
 	uint64_t sprite_id = 0;
-	float x = 0.0f;
-	float y = 0.0f;
-	float x_vel = 0.0f;
-	float y_vel = 0.0f;
-	bool flip = false;
+    Type type = Type::Giraffe;
+    float mass = 100.0f;
+    glm::vec2 position = { 0.0f, 0.0f };
+    glm::vec2 velocity = { 0.0f, 0.0f };
+    glm::vec2 steering_direction = { 0.0f, 0.0f };
+    float max_force = 30.0f;
+    float max_speed = 30.0f;
+    float orientation = 0.0f;
+    float radius = 10.0f;
+};
+
+struct Obstacle {
+    glm::vec2 position = {0.0f, 0.0f};
+    float radius = 100.0f;
 };
 
 struct Game {
@@ -63,8 +79,10 @@ struct Game {
     engine::ActionBinds *action_binds;
     engine::Sprites *sprites;
 
-	foundation::Array<Mob *> giraffes;
-	foundation::Array<Mob *> lions;
+	foundation::Array<Mob> mobs;
+    foundation::Array<Obstacle> obstacles;
+
+    glm::vec2 arrival_position;
 };
 
 /**

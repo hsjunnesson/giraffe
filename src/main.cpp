@@ -10,8 +10,9 @@
 #include <memory.h>
 
 #if defined(LIVE_PP)
-#include "LPP_API.h"
 #include <Windows.h>
+
+#include "LPP_API_x64_CPP.h"
 #endif
 #pragma warning(pop)
 

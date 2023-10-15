@@ -31,8 +31,9 @@ Game::Game(Allocator &allocator, const char *config_path)
 , app_state(AppState::None)
 , action_binds(nullptr)
 , sprites(nullptr)
-, giraffes(allocator)
-, lions(allocator) {
+, mobs(allocator)
+, obstacles(allocator)
+, arrival_position({0, 0}) {
     action_binds = MAKE_NEW(allocator, engine::ActionBinds, allocator, config_path);
     sprites = MAKE_NEW(allocator, engine::Sprites, allocator);
 
@@ -60,14 +61,6 @@ Game::~Game() {
     if (config) {
         ini_destroy(config);
     }
-
-	for (Mob **it = array::begin(giraffes); it != array::end(giraffes); ++it) {
-		MAKE_DELETE(allocator, Mob, *it);
-	}
-
-	for (Mob **it = array::begin(lions); it != array::end(lions); ++it) {
-		MAKE_DELETE(allocator, Mob, *it);
-	}
 }
 
 void update(engine::Engine &engine, void *game_object, float t, float dt) {
