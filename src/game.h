@@ -5,6 +5,7 @@
 #include "memory_types.h"
 #include <glm/glm.hpp>
 #include <stdint.h>
+#include <engine/math.inl>
 #pragma warning(pop)
 
 typedef struct ini_t ini_t;
@@ -65,6 +66,7 @@ struct Giraffe {
 struct Obstacle {
     glm::vec2 position = {0.0f, 0.0f};
     float radius = 100.0f;
+    math::Color4f color = {1.0f, 1.0f, 1.0f, 1.0f};
 };
 
 struct Game {

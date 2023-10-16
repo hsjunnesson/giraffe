@@ -59,13 +59,28 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
     time(&seconds);
     rnd_pcg_seed(&random_device, (RND_U32)seconds);
 
-    // Spawn obstacles
+    // Spawn lake
+    for (int i = 0; i < 3; ++i) {
+        Obstacle obstacle;
+        obstacle.position = {
+            (engine.window_rect.size.x / 2) + 200.0f * rnd_pcg_nextf(&random_device) - 100.0f,
+            (engine.window_rect.size.y / 2) + 200.0f * rnd_pcg_nextf(&random_device) - 100.0f
+        };
+        obstacle.color = engine::color::pico8::blue;
+        obstacle.radius = 50.0f + rnd_pcg_nextf(&random_device) * 100.0f;
+
+        array::push_back(game.obstacles, obstacle);
+    }
+
+    // Spawn trees
     for (int i = 0; i < 8; ++i) {
         Obstacle obstacle;
         obstacle.position = {
-            100.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.x - 200.0f),
-            100.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.y - 200.0f)};
-        obstacle.radius = 50.0f + rnd_pcg_nextf(&random_device) * 100.0f;
+            10.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.x - 20.0f),
+            10.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.y - 20.0f)
+        };
+        obstacle.color = engine::color::pico8::white;
+        obstacle.radius = 20.0f;
 
         array::push_back(game.obstacles, obstacle);
     }
@@ -74,7 +89,7 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
     const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
     assert(giraffe_frame);
 
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 5; ++i) {
         Giraffe giraffe;
         giraffe.mob.mass = 50.0f;
         giraffe.mob.max_force = 1000.0f;
@@ -177,7 +192,7 @@ void update_giraffe(Giraffe &giraffe, Game &game, float dt) {
     const float separation_weight = 5.0f;
 
     glm::vec2 avoidance_force = {0.0f, 0.0f};
-    const float avoidance_weight = 3.0f;
+    const float avoidance_weight = 5.0f;
 
     // arrival
     {
@@ -213,6 +228,8 @@ void update_giraffe(Giraffe &giraffe, Game &game, float dt) {
         const float look_ahead_distance = 200.0f;
 
         const glm::vec2 origin = giraffe.mob.position;
+        const float distance_to_target = glm::length(game.arrival_position - origin);
+
         const glm::vec2 forward = glm::normalize(game.arrival_position - origin);
 
         const glm::vec2 right_vector = {forward.y, -forward.x};
@@ -254,15 +271,18 @@ void update_giraffe(Giraffe &giraffe, Game &game, float dt) {
         }
 
         if (right_intersects || left_intersects) {
-            if (left_intersection_distance < right_intersection_distance) {
-                float ratio = look_ahead_distance / left_intersection_distance;
-                avoidance_force = right_vector * (10.0f * ratio);
-            } else {
-                float ratio = look_ahead_distance / right_intersection_distance;
-                avoidance_force = left_vector * (10.0f * ratio);
-            }
+            float shortest_distance = std::min(left_intersection_distance, right_intersection_distance);
+            if (distance_to_target >= shortest_distance) {
+                if (left_intersection_distance < right_intersection_distance) {
+                    float ratio = left_intersection_distance / look_ahead_distance;
+                    avoidance_force = right_vector * (1.0f - ratio) * 100.0f;
+                } else {
+                    float ratio = right_intersection_distance / look_ahead_distance;
+                    avoidance_force = left_vector * (1.0f - ratio) * 100.0f;
+                }
 
-            avoidance_force *= avoidance_weight;
+                avoidance_force *= avoidance_weight;
+            }
         }
     }
 
@@ -379,8 +399,8 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
     }
 
     // obstacles
-    static ImU32 obstacle_color = IM_COL32(engine::color::pico8::blue.r * 255.0f, engine::color::pico8::blue.g * 255.0f, engine::color::pico8::blue.b * 255.0f, 255);
     for (Obstacle *obstacle = array::begin(game.obstacles); obstacle != array::end(game.obstacles); ++obstacle) {
+        ImU32 obstacle_color = IM_COL32(obstacle->color.r * 255.0f, obstacle->color.g * 255.0f, obstacle->color.b * 255.0f, 255);
         ImVec2 position = ImVec2(obstacle->position.x, engine.window_rect.size.y - obstacle->position.y);
         draw_list->AddCircle(position, obstacle->radius, obstacle_color, 0, 2.0f);
     }
