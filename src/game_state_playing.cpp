@@ -28,10 +28,8 @@
 #include <limits.h>
 
 namespace {
-rnd_pcg_t random_device;
-const int32_t z_layer = -1;
-bool debug_draw = true;
-
+rnd_pcg_t RANDOM_DEVICE;
+const int32_t Z_LAYER = -1;
 } // namespace
 
 namespace game {
@@ -43,7 +41,7 @@ uint64_t add_sprite(engine::Sprites &sprites, const char *sprite_name, const int
     const engine::Sprite sprite = engine::add_sprite(sprites, sprite_name);
 
     glm::mat4 transform = glm::mat4(1.0f);
-    transform = glm::translate(transform, {x, y, z_layer});
+    transform = glm::translate(transform, {x, y, Z_LAYER});
     transform = glm::scale(transform, glm::vec3(sprite.atlas_rect->size.x, sprite.atlas_rect->size.y, 1));
     engine::transform_sprite(sprites, sprite.id, Matrix4f(glm::value_ptr(transform)));
     engine::color_sprite(sprites, sprite.id, color);
@@ -51,45 +49,12 @@ uint64_t add_sprite(engine::Sprites &sprites, const char *sprite_name, const int
     return sprite.id;
 }
 
-void game_state_playing_enter(engine::Engine &engine, Game &game) {
-    (void)engine;
-    (void)game;
-
-    time_t seconds;
-    time(&seconds);
-    rnd_pcg_seed(&random_device, (RND_U32)seconds);
-
-    // Spawn lake
-    for (int i = 0; i < 3; ++i) {
-        Obstacle obstacle;
-        obstacle.position = {
-            (engine.window_rect.size.x / 2) + 200.0f * rnd_pcg_nextf(&random_device) - 100.0f,
-            (engine.window_rect.size.y / 2) + 200.0f * rnd_pcg_nextf(&random_device) - 100.0f
-        };
-        obstacle.color = engine::color::pico8::blue;
-        obstacle.radius = 50.0f + rnd_pcg_nextf(&random_device) * 100.0f;
-
-        array::push_back(game.obstacles, obstacle);
-    }
-
-    // Spawn trees
-    for (int i = 0; i < 8; ++i) {
-        Obstacle obstacle;
-        obstacle.position = {
-            10.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.x - 20.0f),
-            10.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.y - 20.0f)
-        };
-        obstacle.color = engine::color::pico8::white;
-        obstacle.radius = 20.0f;
-
-        array::push_back(game.obstacles, obstacle);
-    }
-
+void spawn_giraffes(engine::Engine &engine, Game &game, int num_giraffes) {
     // Spawn giraffes outside obstacles
     const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
     assert(giraffe_frame);
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < num_giraffes; ++i) {
         Giraffe giraffe;
         giraffe.mob.mass = 50.0f;
         giraffe.mob.max_force = 1000.0f;
@@ -106,8 +71,8 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
             }
 
             giraffe.mob.position = {
-                50.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.x - 100.0f),
-                50.0f + rnd_pcg_nextf(&random_device) * (engine.window_rect.size.y - 100.0f)};
+                50.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.x - 100.0f),
+                50.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.y - 100.0f)};
 
             glm::vec2 pos = giraffe.mob.position + glm::vec2(
                                                    giraffe_frame->rect.size.x * giraffe_frame->pivot.x,
@@ -127,6 +92,42 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
         giraffe.sprite_id = sprite.id;
         array::push_back(game.giraffes, giraffe);
     }
+}
+
+void game_state_playing_enter(engine::Engine &engine, Game &game) {
+    (void)engine;
+    (void)game;
+
+    time_t seconds;
+    time(&seconds);
+    rnd_pcg_seed(&RANDOM_DEVICE, (RND_U32)seconds);
+
+    // Spawn lake
+    Obstacle obstacle;
+    obstacle.position = {
+        (engine.window_rect.size.x / 2) + 200.0f * rnd_pcg_nextf(&RANDOM_DEVICE) - 100.0f,
+        (engine.window_rect.size.y / 2) + 200.0f * rnd_pcg_nextf(&RANDOM_DEVICE) - 100.0f
+    };
+    obstacle.color = engine::color::pico8::blue;
+    obstacle.radius = 100.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * 100.0f;
+
+    array::push_back(game.obstacles, obstacle);
+
+    // Spawn trees
+    for (int i = 0; i < 10; ++i) {
+        Obstacle obstacle;
+        obstacle.position = {
+            10.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.x - 20.0f),
+            10.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.y - 20.0f)
+        };
+        obstacle.color = engine::color::pico8::white;
+        obstacle.radius = 20.0f;
+
+        array::push_back(game.obstacles, obstacle);
+    }
+
+    // Spawn giraffes outside obstacles
+    spawn_giraffes(engine, game, 1);
 }
 
 void game_state_playing_leave(engine::Engine &engine, Game &game) {
@@ -158,7 +159,31 @@ void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::Inp
         }
         case ActionHash::DEBUG_DRAW: {
             if (pressed) {
-                debug_draw = !debug_draw;
+                game.debug_draw = !game.debug_draw;
+            }
+            break;
+        }
+        case ActionHash::DEBUG_AVOIDANCE: {
+            if (pressed) {
+                game.debug_avoidance = !game.debug_avoidance;
+            }
+            break;
+        }
+        case ActionHash::ADD_ONE: {
+            if (pressed || repeated) {
+                spawn_giraffes(engine, game, 1);
+            }
+            break;
+        }
+        case ActionHash::ADD_FIVE: {
+            if (pressed || repeated) {
+                spawn_giraffes(engine, game, 5);
+            }
+            break;
+        }
+        case ActionHash::ADD_TEN: {
+            if (pressed || repeated) {
+                spawn_giraffes(engine, game, 10);
             }
             break;
         }
@@ -170,8 +195,18 @@ void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::Inp
     }
 }
 
-void update_mob(Mob &mob, float dt) {
-    const float drag = 1.0f;
+void update_mob(Mob &mob, Game &game, float dt) {
+    float drag = 1.0f;
+
+    // lake drags you down
+    for (Obstacle *obstacle = array::begin(game.obstacles); obstacle != array::end(game.obstacles); ++obstacle) {
+        const float length = glm::length(obstacle->position - mob.position);
+        if (length <= obstacle->radius) {
+            drag = 10.0f;
+            break;
+        }
+    }
+
     const glm::vec2 drag_force = -drag * mob.velocity;
     const glm::vec2 steering_force = truncate(mob.steering_direction, mob.max_force) + drag_force;
     const glm::vec2 acceleration = (steering_force / mob.mass);
@@ -184,15 +219,15 @@ void update_mob(Mob &mob, float dt) {
     }
 }
 
-void update_giraffe(Giraffe &giraffe, Game &game, float dt) {
+void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float dt) {
     glm::vec2 arrival_force = {0.0f, 0.0f};
     const float arrival_weight = 1.0f;
 
     glm::vec2 separation_force = {0.0f, 0.0f};
-    const float separation_weight = 5.0f;
+    const float separation_weight = 10.0f;
 
     glm::vec2 avoidance_force = {0.0f, 0.0f};
-    const float avoidance_weight = 5.0f;
+    const float avoidance_weight = 10.0f;
 
     // arrival
     {
@@ -246,6 +281,7 @@ void update_giraffe(Giraffe &giraffe, Game &game, float dt) {
         glm::vec2 right_intersection;
         float right_intersection_distance = FLT_MAX;
 
+        // check against each obstacle
         for (Obstacle *obstacle = array::begin(game.obstacles); obstacle != array::end(game.obstacles); ++obstacle) {
             glm::vec2 li;
             bool did_li = ray_circle_intersection(left_start, forward, obstacle->position, obstacle->radius, li);
@@ -270,25 +306,61 @@ void update_giraffe(Giraffe &giraffe, Game &game, float dt) {
             }
         }
 
-        if (right_intersects || left_intersects) {
-            float shortest_distance = std::min(left_intersection_distance, right_intersection_distance);
-            if (distance_to_target >= shortest_distance) {
-                if (left_intersection_distance < right_intersection_distance) {
-                    float ratio = left_intersection_distance / look_ahead_distance;
-                    avoidance_force = right_vector * (1.0f - ratio) * 100.0f;
-                } else {
-                    float ratio = right_intersection_distance / look_ahead_distance;
-                    avoidance_force = left_vector * (1.0f - ratio) * 100.0f;
-                }
+        // check against world bounds
+        const glm::vec2 left1 = {0, 0};
+        const glm::vec2 left2 = {0, engine.window_rect.size.y};
+        const glm::vec2 top1 = {0, 0};
+        const glm::vec2 top2 = {engine.window_rect.size.x, 0};
+        const glm::vec2 right1 = {engine.window_rect.size.x, 0};
+        const glm::vec2 right2 = {engine.window_rect.size.x, engine.window_rect.size.y};
+        const glm::vec2 bottom1 = {0, engine.window_rect.size.y};
+        const glm::vec2 bottom2 = {engine.window_rect.size.x, engine.window_rect.size.y};
 
-                avoidance_force *= avoidance_weight;
+        glm::vec2 lines[] = {left1, left2, top1, top2, right1, right2, bottom1, bottom2};
+
+        for (int i = 0; i < 4; ++i) {
+            const glm::vec2 p1 = lines[i * 2];
+            const glm::vec2 p2 = lines[i * 2 + 1];
+
+            glm::vec2 li;
+            bool did_li = ray_line_intersection(left_start, forward, p1, p2, li);
+            if (did_li) {
+                float distance = glm::length(li - left_start);
+                if (distance <= look_ahead_distance && distance < left_intersection_distance) {
+                    left_intersects = true;
+                    left_intersection = li;
+                    left_intersection_distance = distance;
+                }
             }
+
+            glm::vec2 ri;
+            bool did_ri = ray_line_intersection(right_start, forward, p1, p2, ri);
+            if (did_ri) {
+                float distance = glm::length(ri - right_start);
+                if (distance <= look_ahead_distance && distance < right_intersection_distance) {
+                    right_intersects = true;
+                    right_intersection = li;
+                    right_intersection_distance = distance;
+                }
+            }
+        }
+
+        if (right_intersects || left_intersects) {
+            if (left_intersection_distance < right_intersection_distance) {
+                float ratio = left_intersection_distance / look_ahead_distance;
+                avoidance_force = right_vector * (1.0f - ratio) * 100.0f;
+            } else {
+                float ratio = right_intersection_distance / look_ahead_distance;
+                avoidance_force = left_vector * (1.0f - ratio) * 100.0f;
+            }
+
+            avoidance_force *= avoidance_weight;
         }
     }
 
     giraffe.mob.steering_direction = truncate(arrival_force + separation_force + avoidance_force, giraffe.mob.max_force);
 
-    update_mob(giraffe.mob, dt);
+    update_mob(giraffe.mob, game, dt);
 
     const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
     assert(giraffe_frame);
@@ -302,7 +374,7 @@ void update_giraffe(Giraffe &giraffe, Game &game, float dt) {
     transform = glm::translate(transform, glm::vec3(
                                                 floorf(giraffe.mob.position.x - x_offset),
                                                 floorf(giraffe.mob.position.y - giraffe_frame->rect.size.y * (1.0f - giraffe_frame->pivot.y)),
-                                                z_layer));
+                                                Z_LAYER));
     transform = glm::scale(transform, {(flip ? -1.0f : 1.0f) * giraffe_frame->rect.size.x, giraffe_frame->rect.size.y, 1.0f});
     engine::transform_sprite(*game.sprites, giraffe.sprite_id, Matrix4f(glm::value_ptr(transform)));
 }
@@ -311,7 +383,7 @@ void game_state_playing_update(engine::Engine &engine, Game &game, float t, floa
     (void)engine;
 
     for (Giraffe *giraffe = array::begin(game.giraffes); giraffe != array::end(game.giraffes); ++giraffe) {
-        update_giraffe(*giraffe, game, dt);
+        update_giraffe(*giraffe, engine, game, dt);
     }
 
     engine::update_sprites(*game.sprites, t, dt);
@@ -327,16 +399,15 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
     (void)game;
 
     ImDrawList *draw_list = ImGui::GetForegroundDrawList();
+    TempAllocator128 ta;
 
-    if (debug_draw) {
-        TempAllocator128 ta;
-
+    if (game.debug_draw) {
         const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
         const engine::AtlasFrame *lion_frame = engine::atlas_frame(*game.sprites->atlas, "lion");
         assert(giraffe_frame);
         assert(lion_frame);
 
-        auto debug_draw_mob = [&draw_list, &engine, &ta](Mob &mob) {
+        auto debug_draw_mob = [&draw_list, &engine, &game, &ta](Mob &mob) {
             glm::vec2 origin = {mob.position.x, engine.window_rect.size.y - mob.position.y};
 
             Buffer ss(ta);
@@ -365,8 +436,9 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
             }
 
             // avoidance
-            {
-                glm::vec2 forward = glm::normalize(mob.velocity);
+            if (game.debug_avoidance) {
+                glm::vec2 forward = glm::normalize(game.arrival_position - mob.position);
+
                 forward.y *= -1;
                 glm::vec2 look_ahead = origin + forward * 200.0f;
 
@@ -403,6 +475,13 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
         ImU32 obstacle_color = IM_COL32(obstacle->color.r * 255.0f, obstacle->color.g * 255.0f, obstacle->color.b * 255.0f, 255);
         ImVec2 position = ImVec2(obstacle->position.x, engine.window_rect.size.y - obstacle->position.y);
         draw_list->AddCircle(position, obstacle->radius, obstacle_color, 0, 2.0f);
+    }
+
+    // num giraffes
+    {
+        Buffer ss(ta);
+        string_stream::printf(ss, "giraffes: %u", array::size(game.giraffes));
+        draw_list->AddText(ImVec2(8, 8), IM_COL32_WHITE, string_stream::c_str(ss));
     }
 }
 

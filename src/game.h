@@ -24,6 +24,10 @@ enum class ActionHash : uint64_t {
     NONE = 0x0ULL,
     QUIT = 0x387bbb994ac3551ULL,
     DEBUG_DRAW = 0xe211fdfdbc9f06a0ULL,
+    DEBUG_AVOIDANCE = 0xed7741fffed1553eULL,
+    ADD_ONE = 0xc6d7077102962545ULL,
+    ADD_FIVE = 0x290570f1484c39a6ULL,
+    ADD_TEN = 0xebc74835735457f2ULL,
 };
 
 /**
@@ -82,6 +86,8 @@ struct Game {
     foundation::Array<Giraffe> giraffes;
     foundation::Array<Obstacle> obstacles;
 
+    bool debug_draw;
+    bool debug_avoidance;
     glm::vec2 arrival_position;
 };
 
