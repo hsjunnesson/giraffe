@@ -50,11 +50,74 @@ set(SRC_giraffe
     "src/util.h"
 )
 
+set(HAS_LUA True)
+
+if (HAS_LUA)
+set(SRC_LUA
+    "lua-5.1.5/src/lapi.c"
+    "lua-5.1.5/src/lauxlib.c"
+    "lua-5.1.5/src/lbaselib.c"
+    "lua-5.1.5/src/lcode.c"
+    "lua-5.1.5/src/ldblib.c"
+    "lua-5.1.5/src/ldebug.c"
+    "lua-5.1.5/src/ldo.c"
+    "lua-5.1.5/src/ldump.c"
+    "lua-5.1.5/src/lfunc.c"
+    "lua-5.1.5/src/lgc.c"
+    "lua-5.1.5/src/linit.c"
+    "lua-5.1.5/src/liolib.c"
+    "lua-5.1.5/src/llex.c"
+    "lua-5.1.5/src/lmathlib.c"
+    "lua-5.1.5/src/lmem.c"
+    "lua-5.1.5/src/loadlib.c"
+    "lua-5.1.5/src/lobject.c"
+    "lua-5.1.5/src/lopcodes.c"
+    "lua-5.1.5/src/loslib.c"
+    "lua-5.1.5/src/lparser.c"
+    "lua-5.1.5/src/lstate.c"
+    "lua-5.1.5/src/lstring.c"
+    "lua-5.1.5/src/lstrlib.c"
+    "lua-5.1.5/src/ltable.c"
+    "lua-5.1.5/src/ltablib.c"
+    "lua-5.1.5/src/ltm.c"
+    "lua-5.1.5/src/lundump.c"
+    "lua-5.1.5/src/lvm.c"
+    "lua-5.1.5/src/lzio.c"
+    "lua-5.1.5/src/print.c"
+    "lua-5.1.5/src/lapi.h"
+    "lua-5.1.5/src/lauxlib.h"
+    "lua-5.1.5/src/lcode.h"
+    "lua-5.1.5/src/ldebug.h"
+    "lua-5.1.5/src/ldo.h"
+    "lua-5.1.5/src/lfunc.h"
+    "lua-5.1.5/src/lgc.h"
+    "lua-5.1.5/src/llex.h"
+    "lua-5.1.5/src/llimits.h"
+    "lua-5.1.5/src/lmem.h"
+    "lua-5.1.5/src/lobject.h"
+    "lua-5.1.5/src/lopcodes.h"
+    "lua-5.1.5/src/lparser.h"
+    "lua-5.1.5/src/lstate.h"
+    "lua-5.1.5/src/lstring.h"
+    "lua-5.1.5/src/ltable.h"
+    "lua-5.1.5/src/ltm.h"
+    "lua-5.1.5/src/lua.h"
+    "lua-5.1.5/src/luaconf.h"
+    "lua-5.1.5/src/lualib.h"
+    "lua-5.1.5/src/lundump.h"
+    "lua-5.1.5/src/lvm.h"
+    "lua-5.1.5/src/lzio.h"
+)
+endif()
 
 # Create executable
 add_executable(${PROJECT_NAME}
     ${SRC_giraffe}
 )
+
+if (HAS_LUA)
+    target_sources(${PROJECT_NAME} PRIVATE ${SRC_LUA})
+endif()
 
 
 # Includes
@@ -65,6 +128,10 @@ endif()
 
 if (LIVE_PP)
     include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/LivePP/API/x64)
+endif()
+
+if (HAS_LUA)
+    include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/lua-5.1.5/src)
 endif()
 
 
