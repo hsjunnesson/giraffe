@@ -73,6 +73,11 @@ struct Obstacle {
     math::Color4f color = {1.0f, 1.0f, 1.0f, 1.0f};
 };
 
+struct Food {
+    uint64_t sprite_id = 0;
+    glm::vec2 position = {0.0f, 0.0f};
+};
+
 struct Game {
     Game(foundation::Allocator &allocator, const char *config_path);
     ~Game();
@@ -85,10 +90,10 @@ struct Game {
 
     foundation::Array<Giraffe> giraffes;
     foundation::Array<Obstacle> obstacles;
+    Food food;
 
     bool debug_draw;
     bool debug_avoidance;
-    glm::vec2 arrival_position;
 };
 
 /**

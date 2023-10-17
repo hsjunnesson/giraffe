@@ -29,25 +29,13 @@
 
 namespace {
 rnd_pcg_t RANDOM_DEVICE;
-const int32_t Z_LAYER = -1;
+const int32_t MOB_Z_LAYER = -1;
+const int32_t FOOD_Z_LAYER = -2;
 } // namespace
 
 namespace game {
 using namespace math;
 using namespace foundation;
-
-/// Utility to add a sprite to the game.
-uint64_t add_sprite(engine::Sprites &sprites, const char *sprite_name, const int32_t x, const int32_t y, Color4f color = engine::color::white) {
-    const engine::Sprite sprite = engine::add_sprite(sprites, sprite_name);
-
-    glm::mat4 transform = glm::mat4(1.0f);
-    transform = glm::translate(transform, {x, y, Z_LAYER});
-    transform = glm::scale(transform, glm::vec3(sprite.atlas_rect->size.x, sprite.atlas_rect->size.y, 1));
-    engine::transform_sprite(sprites, sprite.id, Matrix4f(glm::value_ptr(transform)));
-    engine::color_sprite(sprites, sprite.id, color);
-
-    return sprite.id;
-}
 
 void spawn_giraffes(engine::Engine &engine, Game &game, int num_giraffes) {
     // Spawn giraffes outside obstacles
@@ -60,33 +48,13 @@ void spawn_giraffes(engine::Engine &engine, Game &game, int num_giraffes) {
         giraffe.mob.max_force = 1000.0f;
         giraffe.mob.max_speed = 300.0f;
         giraffe.mob.radius = 20.0;
+        giraffe.mob.position = {
+            50.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.x - 100.0f),
+            50.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.y - 100.0f)};
 
-        int attempts = 0;
-
-        bool is_valid = false;
-        while (!is_valid) {
-            ++attempts;
-            if (attempts > 1000) {
-                log_fatal("Could not spawn giraffes");
-            }
-
-            giraffe.mob.position = {
-                50.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.x - 100.0f),
-                50.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.y - 100.0f)};
-
-            glm::vec2 pos = giraffe.mob.position + glm::vec2(
-                                                   giraffe_frame->rect.size.x * giraffe_frame->pivot.x,
-                                                   giraffe_frame->rect.size.y * (1.0f - giraffe_frame->pivot.y));
-
-            is_valid = true;
-
-            for (Obstacle *obstacle = array::begin(game.obstacles); obstacle != array::end(game.obstacles); ++obstacle) {
-                if (circles_overlap(pos, obstacle->position, giraffe.mob.radius, obstacle->radius)) {
-                    is_valid = false;
-                    break;
-                }
-            }
-        }
+        glm::vec2 pos = giraffe.mob.position + glm::vec2(
+                                                giraffe_frame->rect.size.x * giraffe_frame->pivot.x,
+                                                giraffe_frame->rect.size.y * (1.0f - giraffe_frame->pivot.y));
 
         const engine::Sprite sprite = engine::add_sprite(*game.sprites, "giraffe", engine::color::pico8::orange);
         giraffe.sprite_id = sprite.id;
@@ -128,6 +96,20 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
 
     // Spawn giraffes outside obstacles
     spawn_giraffes(engine, game, 1);
+
+    // Spawn food
+    {
+        const engine::Sprite sprite = engine::add_sprite(*game.sprites, "food", engine::color::pico8::green);
+        game.food.sprite_id = sprite.id;
+
+        glm::mat4 transform = glm::mat4(1.0f);
+        transform = glm::translate(transform, glm::vec3(
+                                                    floorf(game.food.position.x - sprite.atlas_frame->rect.size.x * sprite.atlas_frame->pivot.x),
+                                                    floorf(game.food.position.y - sprite.atlas_frame->rect.size.y * (1.0f - sprite.atlas_frame->pivot.y)),
+                                                    FOOD_Z_LAYER));
+        transform = glm::scale(transform, {sprite.atlas_frame->rect.size.x, sprite.atlas_frame->rect.size.y, 1.0f});
+        engine::transform_sprite(*game.sprites, game.food.sprite_id, Matrix4f(glm::value_ptr(transform)));
+    }
 }
 
 void game_state_playing_leave(engine::Engine &engine, Game &game) {
@@ -190,7 +172,16 @@ void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::Inp
         }
     } else if (input_command.input_type == engine::InputType::Mouse) {
         if (input_command.mouse_state.mouse_left_state == engine::TriggerState::Pressed) {
-            game.arrival_position = {input_command.mouse_state.mouse_position.x, engine.window_rect.size.y - input_command.mouse_state.mouse_position.y};
+            game.food.position = {input_command.mouse_state.mouse_position.x, engine.window_rect.size.y - input_command.mouse_state.mouse_position.y};
+
+            const engine::Sprite *sprite = engine::get_sprite(*game.sprites, game.food.sprite_id);
+            glm::mat4 transform = glm::mat4(1.0f);
+            transform = glm::translate(transform, glm::vec3(
+                                                        floorf(game.food.position.x - sprite->atlas_frame->rect.size.x * sprite->atlas_frame->pivot.x),
+                                                        floorf(game.food.position.y - sprite->atlas_frame->rect.size.y * (1.0f - sprite->atlas_frame->pivot.y)),
+                                                        FOOD_Z_LAYER));
+            transform = glm::scale(transform, {sprite->atlas_frame->rect.size.x, sprite->atlas_frame->rect.size.y, 1.0f});
+            engine::transform_sprite(*game.sprites, game.food.sprite_id, Matrix4f(glm::value_ptr(transform)));
         }
     }
 }
@@ -231,7 +222,7 @@ void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float 
 
     // arrival
     {
-        const glm::vec2 target_offset = game.arrival_position - giraffe.mob.position;
+        const glm::vec2 target_offset = game.food.position - giraffe.mob.position;
         const float distance = glm::length(target_offset);
         const float ramped_speed = giraffe.mob.max_speed * (distance / 100.0f);
         const float clipped_speed = std::min(ramped_speed, giraffe.mob.max_speed);
@@ -263,9 +254,9 @@ void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float 
         const float look_ahead_distance = 200.0f;
 
         const glm::vec2 origin = giraffe.mob.position;
-        const float distance_to_target = glm::length(game.arrival_position - origin);
+        const float distance_to_target = glm::length(game.food.position - origin);
 
-        const glm::vec2 forward = glm::normalize(game.arrival_position - origin);
+        const glm::vec2 forward = glm::normalize(game.food.position - origin);
 
         const glm::vec2 right_vector = {forward.y, -forward.x};
         const glm::vec2 left_vector = {-forward.y, forward.x};
@@ -374,7 +365,7 @@ void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float 
     transform = glm::translate(transform, glm::vec3(
                                                 floorf(giraffe.mob.position.x - x_offset),
                                                 floorf(giraffe.mob.position.y - giraffe_frame->rect.size.y * (1.0f - giraffe_frame->pivot.y)),
-                                                Z_LAYER));
+                                                MOB_Z_LAYER));
     transform = glm::scale(transform, {(flip ? -1.0f : 1.0f) * giraffe_frame->rect.size.x, giraffe_frame->rect.size.y, 1.0f});
     engine::transform_sprite(*game.sprites, giraffe.sprite_id, Matrix4f(glm::value_ptr(transform)));
 }
@@ -437,7 +428,7 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
 
             // avoidance
             if (game.debug_avoidance) {
-                glm::vec2 forward = glm::normalize(game.arrival_position - mob.position);
+                glm::vec2 forward = glm::normalize(game.food.position - mob.position);
 
                 forward.y *= -1;
                 glm::vec2 look_ahead = origin + forward * 200.0f;
@@ -466,8 +457,8 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
         }
 
         // food
-        draw_list->AddCircleFilled(ImVec2(game.arrival_position.x, engine.window_rect.size.y - game.arrival_position.y), 3, IM_COL32(255, 255, 0, 255));
-        draw_list->AddText(ImVec2(game.arrival_position.x, engine.window_rect.size.y - game.arrival_position.y + 8), IM_COL32(255, 255, 0, 255), "food");
+        draw_list->AddCircleFilled(ImVec2(game.food.position.x, engine.window_rect.size.y - game.food.position.y), 3, IM_COL32(255, 255, 0, 255));
+        draw_list->AddText(ImVec2(game.food.position.x, engine.window_rect.size.y - game.food.position.y + 8), IM_COL32(255, 255, 0, 255), "food");
     }
 
     // obstacles

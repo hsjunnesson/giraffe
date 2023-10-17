@@ -33,9 +33,10 @@ Game::Game(Allocator &allocator, const char *config_path)
 , sprites(nullptr)
 , giraffes(allocator)
 , obstacles(allocator)
+, food()
 , debug_draw(true)
 , debug_avoidance(false)
-, arrival_position({0, 0}) {
+{
     action_binds = MAKE_NEW(allocator, engine::ActionBinds, allocator, config_path);
     sprites = MAKE_NEW(allocator, engine::Sprites, allocator);
 
