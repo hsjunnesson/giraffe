@@ -91,8 +91,8 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
         array::push_back(game.obstacles, obstacle);
     }
 
-    // Spawn giraffes outside obstacles
-    spawn_giraffes(engine, game, 1);
+    // Spawn giraffes
+    spawn_giraffes(engine, game, 3);
 
     // Spawn food
     {
