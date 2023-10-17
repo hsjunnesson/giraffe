@@ -45,7 +45,7 @@ void spawn_giraffes(engine::Engine &engine, Game &game, int num_giraffes) {
 
     for (int i = 0; i < num_giraffes; ++i) {
         Giraffe giraffe;
-        giraffe.mob.mass = 50.0f;
+        giraffe.mob.mass = 100.0f;
         giraffe.mob.max_force = 1000.0f;
         giraffe.mob.max_speed = 300.0f;
         giraffe.mob.radius = 20.0;
@@ -85,7 +85,7 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
             10.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.x - 20.0f),
             10.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.y - 20.0f)
         };
-        obstacle.color = engine::color::pico8::white;
+        obstacle.color = engine::color::pico8::light_gray;
         obstacle.radius = 20.0f;
 
         array::push_back(game.obstacles, obstacle);
@@ -209,7 +209,7 @@ void update_mob(Mob &mob, Game &game, float dt) {
 
     const glm::vec2 drag_force = -drag * mob.velocity;
     const glm::vec2 steering_force = truncate(mob.steering_direction, mob.max_force) + drag_force;
-    const glm::vec2 acceleration = (steering_force / mob.mass);
+    const glm::vec2 acceleration = steering_force / mob.mass;
 
     mob.velocity = truncate(mob.velocity + acceleration, mob.max_speed);
     mob.position = mob.position + mob.velocity * dt;
@@ -354,11 +354,12 @@ void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float 
             for (Giraffe *other_giraffe = array::begin(game.giraffes); other_giraffe != array::end(game.giraffes); ++other_giraffe) {
                 if (other_giraffe != &giraffe && !other_giraffe->dead) {
                     glm::vec2 offset = other_giraffe->mob.position - giraffe.mob.position;
-                    const float distance = glm::length(offset);
-                    const float near_distance = giraffe.mob.radius + other_giraffe->mob.radius;
-                    if (distance <= near_distance) {
+                    const float distance_squared = glm::length2(offset);
+                    const float near_distance_squared = (giraffe.mob.radius + other_giraffe->mob.radius) * (giraffe.mob.radius + other_giraffe->mob.radius);
+                    if (distance_squared <= near_distance_squared) {
+                        float distance = sqrt(distance_squared);
                         offset /= distance;
-                        offset *= near_distance;
+                        offset *= (giraffe.mob.radius + other_giraffe->mob.radius);
                         separation_force -= offset;
                     }
                 }
@@ -607,11 +608,20 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
         draw_list->AddCircle(position, obstacle->radius, obstacle_color, 0, 2.0f);
     }
 
-    // num giraffes
+    // debug text
     {
+        using namespace string_stream;
+
         Buffer ss(ta);
-        string_stream::printf(ss, "giraffes: %u", array::size(game.giraffes));
-        draw_list->AddText(ImVec2(8, 8), IM_COL32_WHITE, string_stream::c_str(ss));
+        printf(ss, "KEY_F1: Debug Draw %s\n", game.debug_draw ? "on" : "off");
+        printf(ss, "KEY_F2: Debug Avoidance %s\n", game.debug_avoidance ? "on" : "off");
+        printf(ss, "KEY_1: Spawn 1 giraffe\n");
+        printf(ss, "KEY_5: Spawn 5 giraffes\n");
+        printf(ss, "KEY_0: Spawn 10 giraffes\n");
+        printf(ss, "MOUSE_LEFT: Move food\n");
+        printf(ss, "Giraffes: %u\n", array::size(game.giraffes));
+
+        draw_list->AddText(ImVec2(8, 8), IM_COL32_WHITE, c_str(ss));
     }
 }
 

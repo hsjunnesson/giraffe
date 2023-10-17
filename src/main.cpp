@@ -9,6 +9,10 @@
 #include <backward.hpp>
 #include <memory.h>
 
+#if defined(SUPERLUMINAL)
+#include <Superluminal/PerformanceAPI.h>
+#endif
+
 #if defined(LIVE_PP)
 #include <Windows.h>
 
