@@ -6,7 +6,8 @@
 	"rotated": false,
 	"trimmed": false,
 	"spriteSourceSize": {"x":0,"y":0,"w":24,"h":23},
-	"sourceSize": {"w":24,"h":23}
+	"sourceSize": {"w":24,"h":23},
+	"pivot": {"x":0.5,"y":0.5}
 },
 {
 	"filename": "giraffe",
@@ -14,7 +15,8 @@
 	"rotated": false,
 	"trimmed": false,
 	"spriteSourceSize": {"x":0,"y":0,"w":18,"h":40},
-	"sourceSize": {"w":18,"h":40}
+	"sourceSize": {"w":18,"h":40},
+	"pivot": {"x":0.5,"y":0.8}
 },
 {
 	"filename": "lion",
@@ -22,7 +24,8 @@
 	"rotated": false,
 	"trimmed": false,
 	"spriteSourceSize": {"x":0,"y":0,"w":34,"h":28},
-	"sourceSize": {"w":34,"h":28}
+	"sourceSize": {"w":34,"h":28},
+	"pivot": {"x":0.5,"y":0.5}
 }],
 "meta": {
 	"app": "https://www.codeandweb.com/texturepacker",
@@ -31,6 +34,6 @@
 	"format": "RGBA8888",
 	"size": {"w":64,"h":64},
 	"scale": "1",
-	"smartupdate": "$TexturePacker:SmartUpdate:a336c904264437e52729492791b5bc76:54edcd611eec48d401afb9fa750cebc4:cbce6b53f0f49e0bf15173c25c41f876$"
+	"smartupdate": "$TexturePacker:SmartUpdate:e8c7c3e59f921b712397824b5a6384fb:54edcd611eec48d401afb9fa750cebc4:cbce6b53f0f49e0bf15173c25c41f876$"
 }
 }

@@ -56,6 +56,7 @@ struct Mob {
     glm::vec2 position = {0.0f, 0.0f};
     glm::vec2 velocity = {0.0f, 0.0f};
     glm::vec2 steering_direction = {0.0f, 0.0f};
+    glm::vec2 steering_target = {0.0f, 0.0f};
     float max_force = 30.0f;
     float max_speed = 30.0f;
     float orientation = 0.0f;
@@ -65,6 +66,15 @@ struct Mob {
 struct Giraffe {
     uint64_t sprite_id = 0;
     Mob mob;
+    bool dead = false;
+};
+
+struct Lion {
+    uint64_t sprite_id = 0;
+    Mob mob;
+    Giraffe *locked_giraffe = nullptr;
+    float energy = 0.0f;
+    float max_enery = 10.0f;
 };
 
 struct Obstacle {
@@ -91,6 +101,7 @@ struct Game {
     foundation::Array<Giraffe> giraffes;
     foundation::Array<Obstacle> obstacles;
     Food food;
+    Lion lion;
 
     bool debug_draw;
     bool debug_avoidance;

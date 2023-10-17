@@ -34,6 +34,7 @@ Game::Game(Allocator &allocator, const char *config_path)
 , giraffes(allocator)
 , obstacles(allocator)
 , food()
+, lion()
 , debug_draw(true)
 , debug_avoidance(false)
 {
