@@ -4,9 +4,9 @@
 
 #if defined(HAS_LUA) || defined(HAS_LUAJIT)
 
-namespace game {
+namespace lua {
 
-void initialize_lua();
+void initialize();
 
 } // namespace game
 

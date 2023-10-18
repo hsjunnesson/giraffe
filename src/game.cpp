@@ -183,7 +183,7 @@ void transition(engine::Engine &engine, void *game_object, AppState app_state) {
         engine::init_sprites(*game->sprites, atlas_filename);
 
 #if defined(HAS_LUA) || defined(HAS_LUAJIT)
-        initialize_lua();
+        lua::initialize();
 #endif
 
         transition(engine, game_object, AppState::Playing);

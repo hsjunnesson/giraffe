@@ -133,6 +133,7 @@ if (HAS_LUA OR HAS_LUAJIT)
     set(SRC_interface
         "src/if_game.h"
         "src/if_game.cpp"
+        "src/luaaa.hpp"
     )
 
     target_sources(${PROJECT_NAME} PRIVATE ${SRC_interface})
@@ -174,6 +175,10 @@ if (MSVC)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
     set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
     target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE=1)
+
+    if (HAS_LUA)
+        source_group("lua" FILES ${SRC_LUA})
+    endif()
 
     if (LIVE_PP)
         target_compile_definitions(${PROJECT_NAME} PRIVATE LIVE_PP=1 NOMINMAX=1)
