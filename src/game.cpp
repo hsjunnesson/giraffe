@@ -14,6 +14,10 @@
 
 #include <cassert>
 
+#if defined(HAS_LUA) || defined(HAS_LUAJIT)
+#include "if_game.h"
+#endif
+
 namespace game {
 
 void game_state_playing_enter(engine::Engine &engine, Game &game);
@@ -28,15 +32,10 @@ using namespace foundation;
 Game::Game(Allocator &allocator, const char *config_path)
 : allocator(allocator)
 , config(nullptr)
-, app_state(AppState::None)
 , action_binds(nullptr)
 , sprites(nullptr)
-, giraffes(allocator)
-, obstacles(allocator)
-, food()
-, lion()
-, debug_draw(true)
-, debug_avoidance(false)
+, app_state(AppState::None)
+, game_state(allocator)
 {
     action_binds = MAKE_NEW(allocator, engine::ActionBinds, allocator, config_path);
     sprites = MAKE_NEW(allocator, engine::Sprites, allocator);
@@ -183,6 +182,10 @@ void transition(engine::Engine &engine, void *game_object, AppState app_state) {
         }
 
         engine::init_sprites(*game->sprites, atlas_filename);
+
+#if defined(HAS_LUA) || defined(HAS_LUAJIT)
+        initialize_lua();
+#endif
 
         transition(engine, game_object, AppState::Playing);
         break;

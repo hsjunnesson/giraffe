@@ -55,7 +55,7 @@ void spawn_giraffes(engine::Engine &engine, Game &game, int num_giraffes) {
 
         const engine::Sprite sprite = engine::add_sprite(*game.sprites, "giraffe", engine::color::pico8::orange);
         giraffe.sprite_id = sprite.id;
-        array::push_back(game.giraffes, giraffe);
+        array::push_back(game.game_state.giraffes, giraffe);
     }
 }
 
@@ -76,7 +76,7 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
     obstacle.color = engine::color::pico8::blue;
     obstacle.radius = 100.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * 100.0f;
 
-    array::push_back(game.obstacles, obstacle);
+    array::push_back(game.game_state.obstacles, obstacle);
 
     // Spawn trees
     for (int i = 0; i < 10; ++i) {
@@ -88,7 +88,7 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
         obstacle.color = engine::color::pico8::light_gray;
         obstacle.radius = 20.0f;
 
-        array::push_back(game.obstacles, obstacle);
+        array::push_back(game.game_state.obstacles, obstacle);
     }
 
     // Spawn giraffes
@@ -97,27 +97,27 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
     // Spawn food
     {
         const engine::Sprite sprite = engine::add_sprite(*game.sprites, "food", engine::color::pico8::green);
-        game.food.sprite_id = sprite.id;
-        game.food.position = {0.25f * engine.window_rect.size.x, 0.25f * engine.window_rect.size.y};
+        game.game_state.food.sprite_id = sprite.id;
+        game.game_state.food.position = {0.25f * engine.window_rect.size.x, 0.25f * engine.window_rect.size.y};
         
         glm::mat4 transform = glm::mat4(1.0f);
         transform = glm::translate(transform, glm::vec3(
-                                                    floorf(game.food.position.x - sprite.atlas_frame->rect.size.x * sprite.atlas_frame->pivot.x),
-                                                    floorf(game.food.position.y - sprite.atlas_frame->rect.size.y * (1.0f - sprite.atlas_frame->pivot.y)),
+                                                    floorf(game.game_state.food.position.x - sprite.atlas_frame->rect.size.x * sprite.atlas_frame->pivot.x),
+                                                    floorf(game.game_state.food.position.y - sprite.atlas_frame->rect.size.y * (1.0f - sprite.atlas_frame->pivot.y)),
                                                     FOOD_Z_LAYER));
         transform = glm::scale(transform, {sprite.atlas_frame->rect.size.x, sprite.atlas_frame->rect.size.y, 1.0f});
-        engine::transform_sprite(*game.sprites, game.food.sprite_id, Matrix4f(glm::value_ptr(transform)));
+        engine::transform_sprite(*game.sprites, game.game_state.food.sprite_id, Matrix4f(glm::value_ptr(transform)));
     }
 
     // Spawn lion
     {
         const engine::Sprite sprite = engine::add_sprite(*game.sprites, "lion", engine::color::pico8::yellow);
-        game.lion.sprite_id = sprite.id;
-        game.lion.mob.position = {engine.window_rect.size.x * 0.75f, engine.window_rect.size.y * 0.75f};
-        game.lion.mob.mass = 25.0f;
-        game.lion.mob.max_force = 1000.0f;
-        game.lion.mob.max_speed = 400.0f;
-        game.lion.mob.radius = 20.0;
+        game.game_state.lion.sprite_id = sprite.id;
+        game.game_state.lion.mob.position = {engine.window_rect.size.x * 0.75f, engine.window_rect.size.y * 0.75f};
+        game.game_state.lion.mob.mass = 25.0f;
+        game.game_state.lion.mob.max_force = 1000.0f;
+        game.game_state.lion.mob.max_speed = 400.0f;
+        game.game_state.lion.mob.radius = 20.0;
     }
 }
 
@@ -150,13 +150,13 @@ void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::Inp
         }
         case ActionHash::DEBUG_DRAW: {
             if (pressed) {
-                game.debug_draw = !game.debug_draw;
+                game.game_state.debug_draw = !game.game_state.debug_draw;
             }
             break;
         }
         case ActionHash::DEBUG_AVOIDANCE: {
             if (pressed) {
-                game.debug_avoidance = !game.debug_avoidance;
+                game.game_state.debug_avoidance = !game.game_state.debug_avoidance;
             }
             break;
         }
@@ -181,16 +181,16 @@ void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::Inp
         }
     } else if (input_command.input_type == engine::InputType::Mouse) {
         if (input_command.mouse_state.mouse_left_state == engine::TriggerState::Pressed) {
-            game.food.position = {input_command.mouse_state.mouse_position.x, engine.window_rect.size.y - input_command.mouse_state.mouse_position.y};
+            game.game_state.food.position = {input_command.mouse_state.mouse_position.x, engine.window_rect.size.y - input_command.mouse_state.mouse_position.y};
 
-            const engine::Sprite *sprite = engine::get_sprite(*game.sprites, game.food.sprite_id);
+            const engine::Sprite *sprite = engine::get_sprite(*game.sprites, game.game_state.food.sprite_id);
             glm::mat4 transform = glm::mat4(1.0f);
             transform = glm::translate(transform, glm::vec3(
-                                                        floorf(game.food.position.x - sprite->atlas_frame->rect.size.x * sprite->atlas_frame->pivot.x),
-                                                        floorf(game.food.position.y - sprite->atlas_frame->rect.size.y * (1.0f - sprite->atlas_frame->pivot.y)),
+                                                        floorf(game.game_state.food.position.x - sprite->atlas_frame->rect.size.x * sprite->atlas_frame->pivot.x),
+                                                        floorf(game.game_state.food.position.y - sprite->atlas_frame->rect.size.y * (1.0f - sprite->atlas_frame->pivot.y)),
                                                         FOOD_Z_LAYER));
             transform = glm::scale(transform, {sprite->atlas_frame->rect.size.x, sprite->atlas_frame->rect.size.y, 1.0f});
-            engine::transform_sprite(*game.sprites, game.food.sprite_id, Matrix4f(glm::value_ptr(transform)));
+            engine::transform_sprite(*game.sprites, game.game_state.food.sprite_id, Matrix4f(glm::value_ptr(transform)));
         }
     }
 }
@@ -199,7 +199,7 @@ void update_mob(Mob &mob, Game &game, float dt) {
     float drag = 1.0f;
 
     // lake drags you down
-    for (Obstacle *obstacle = array::begin(game.obstacles); obstacle != array::end(game.obstacles); ++obstacle) {
+    for (Obstacle *obstacle = array::begin(game.game_state.obstacles); obstacle != array::end(game.game_state.obstacles); ++obstacle) {
         const float length = glm::length(obstacle->position - mob.position);
         if (length <= obstacle->radius) {
             drag = 10.0f;
@@ -250,7 +250,7 @@ glm::vec2 avoidance_behavior(const Mob &mob, engine::Engine &engine, Game &game)
     float right_intersection_distance = FLT_MAX;
 
     // check against each obstacle
-    for (Obstacle *obstacle = array::begin(game.obstacles); obstacle != array::end(game.obstacles); ++obstacle) {
+    for (Obstacle *obstacle = array::begin(game.game_state.obstacles); obstacle != array::end(game.game_state.obstacles); ++obstacle) {
         glm::vec2 li;
         bool did_li = ray_circle_intersection(left_start, forward, obstacle->position, obstacle->radius, li);
         if (did_li) {
@@ -309,14 +309,14 @@ void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float 
     if (!giraffe.dead) {
         bool is_hunted = false;
 
-        float distance = glm::length(game.lion.mob.position - giraffe.mob.position);
+        float distance = glm::length(game.game_state.lion.mob.position - giraffe.mob.position);
         if (distance <= 300.0f) {
             is_hunted = true;
         }
 
         // flee
         if (is_hunted) {
-            const glm::vec2 flee_direction = giraffe.mob.position - game.lion.mob.position;
+            const glm::vec2 flee_direction = giraffe.mob.position - game.game_state.lion.mob.position;
             const glm::vec2 steering_target = giraffe.mob.position + flee_direction;
             giraffe.mob.steering_target = steering_target;
 
@@ -344,14 +344,14 @@ void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float 
             flee_force *= flee_weight;
         } else {
             // arrival
-            giraffe.mob.steering_target = game.food.position;
-            arrival_force = arrival_behavior(giraffe.mob, game.food.position, 100.0f);
+            giraffe.mob.steering_target = game.game_state.food.position;
+            arrival_force = arrival_behavior(giraffe.mob, game.game_state.food.position, 100.0f);
             arrival_force *= arrival_weight;
         }
 
         // separation
         {
-            for (Giraffe *other_giraffe = array::begin(game.giraffes); other_giraffe != array::end(game.giraffes); ++other_giraffe) {
+            for (Giraffe *other_giraffe = array::begin(game.game_state.giraffes); other_giraffe != array::end(game.game_state.giraffes); ++other_giraffe) {
                 if (other_giraffe != &giraffe && !other_giraffe->dead) {
                     glm::vec2 offset = other_giraffe->mob.position - giraffe.mob.position;
                     const float distance_squared = glm::length2(offset);
@@ -410,7 +410,7 @@ void update_lion(Lion &lion, engine::Engine &engine, Game &game, float t, float 
         if (lion.energy >= lion.max_enery) {
             Giraffe *found_giraffe = nullptr;
             float distance = FLT_MAX;
-            for (Giraffe *giraffe = array::begin(game.giraffes); giraffe != array::end(game.giraffes); ++giraffe) {
+            for (Giraffe *giraffe = array::begin(game.game_state.giraffes); giraffe != array::end(game.game_state.giraffes); ++giraffe) {
                 if (!giraffe->dead) {
                     float d = glm::length(giraffe->mob.position - lion.mob.position);
                     if (d < distance) {
@@ -493,11 +493,11 @@ void update_lion(Lion &lion, engine::Engine &engine, Game &game, float t, float 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
     (void)engine;
 
-    for (Giraffe *giraffe = array::begin(game.giraffes); giraffe != array::end(game.giraffes); ++giraffe) {
+    for (Giraffe *giraffe = array::begin(game.game_state.giraffes); giraffe != array::end(game.game_state.giraffes); ++giraffe) {
         update_giraffe(*giraffe, engine, game, dt);
     }
 
-    update_lion(game.lion, engine, game, t, dt);
+    update_lion(game.game_state.lion, engine, game, t, dt);
 
     engine::update_sprites(*game.sprites, t, dt);
     engine::commit_sprites(*game.sprites);
@@ -514,7 +514,7 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
     ImDrawList *draw_list = ImGui::GetForegroundDrawList();
     TempAllocator128 ta;
 
-    if (game.debug_draw) {
+    if (game.game_state.debug_draw) {
         const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
         const engine::AtlasFrame *lion_frame = engine::atlas_frame(*game.sprites->atlas, "lion");
         assert(giraffe_frame);
@@ -549,7 +549,7 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
             }
 
             // avoidance
-            if (game.debug_avoidance) {
+            if (game.game_state.debug_avoidance) {
                 glm::vec2 forward = glm::normalize(mob.steering_target - mob.position);
 
                 forward.y *= -1;
@@ -574,7 +574,7 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
             }
         };
 
-        for (Giraffe *giraffe = array::begin(game.giraffes); giraffe != array::end(game.giraffes); ++giraffe) {
+        for (Giraffe *giraffe = array::begin(game.game_state.giraffes); giraffe != array::end(game.game_state.giraffes); ++giraffe) {
             if (!giraffe->dead) {
                 debug_draw_mob(giraffe->mob);
             }
@@ -582,27 +582,27 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
 
         // lion
         {
-            debug_draw_mob(game.lion.mob);
+            debug_draw_mob(game.game_state.lion.mob);
 
-            glm::vec2 origin = {game.lion.mob.position.x, engine.window_rect.size.y - game.lion.mob.position.y};
+            glm::vec2 origin = {game.game_state.lion.mob.position.x, engine.window_rect.size.y - game.game_state.lion.mob.position.y};
 
             Buffer ss(ta);
 
             // energy
             {
-                string_stream::printf(ss, "energy: %.0f", glm::length(game.lion.energy));
+                string_stream::printf(ss, "energy: %.0f", glm::length(game.game_state.lion.energy));
                 draw_list->AddText(ImVec2(origin.x, origin.y + 32), IM_COL32(255, 0, 0, 255), string_stream::c_str(ss));
             }
 
         }
 
         // food
-        draw_list->AddCircleFilled(ImVec2(game.food.position.x, engine.window_rect.size.y - game.food.position.y), 3, IM_COL32(255, 255, 0, 255));
-        draw_list->AddText(ImVec2(game.food.position.x, engine.window_rect.size.y - game.food.position.y + 8), IM_COL32(255, 255, 0, 255), "food");
+        draw_list->AddCircleFilled(ImVec2(game.game_state.food.position.x, engine.window_rect.size.y - game.game_state.food.position.y), 3, IM_COL32(255, 255, 0, 255));
+        draw_list->AddText(ImVec2(game.game_state.food.position.x, engine.window_rect.size.y - game.game_state.food.position.y + 8), IM_COL32(255, 255, 0, 255), "food");
     }
 
     // obstacles
-    for (Obstacle *obstacle = array::begin(game.obstacles); obstacle != array::end(game.obstacles); ++obstacle) {
+    for (Obstacle *obstacle = array::begin(game.game_state.obstacles); obstacle != array::end(game.game_state.obstacles); ++obstacle) {
         ImU32 obstacle_color = IM_COL32(obstacle->color.r * 255.0f, obstacle->color.g * 255.0f, obstacle->color.b * 255.0f, 255);
         ImVec2 position = ImVec2(obstacle->position.x, engine.window_rect.size.y - obstacle->position.y);
         draw_list->AddCircle(position, obstacle->radius, obstacle_color, 0, 2.0f);
@@ -613,13 +613,13 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
         using namespace string_stream;
 
         Buffer ss(ta);
-        printf(ss, "KEY_F1: Debug Draw %s\n", game.debug_draw ? "on" : "off");
-        printf(ss, "KEY_F2: Debug Avoidance %s\n", game.debug_avoidance ? "on" : "off");
+        printf(ss, "KEY_F1: Debug Draw %s\n", game.game_state.debug_draw ? "on" : "off");
+        printf(ss, "KEY_F2: Debug Avoidance %s\n", game.game_state.debug_avoidance ? "on" : "off");
         printf(ss, "KEY_1: Spawn 1 giraffe\n");
         printf(ss, "KEY_5: Spawn 5 giraffes\n");
         printf(ss, "KEY_0: Spawn 10 giraffes\n");
         printf(ss, "MOUSE_LEFT: Move food\n");
-        printf(ss, "Giraffes: %u\n", array::size(game.giraffes));
+        printf(ss, "Giraffes: %u\n", array::size(game.game_state.giraffes));
 
         draw_list->AddText(ImVec2(8, 8), IM_COL32_WHITE, c_str(ss));
     }

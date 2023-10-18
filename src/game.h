@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #include <stdint.h>
 #include <engine/math.inl>
+#include "util.h"
 #pragma warning(pop)
 
 typedef struct ini_t ini_t;
@@ -88,15 +89,18 @@ struct Food {
     glm::vec2 position = {0.0f, 0.0f};
 };
 
-struct Game {
-    Game(foundation::Allocator &allocator, const char *config_path);
-    ~Game();
-
-    foundation::Allocator &allocator;
-    ini_t *config;
-    AppState app_state;
-    engine::ActionBinds *action_binds;
-    engine::Sprites *sprites;
+// This is the game state for the C++ gameplay implementation.
+struct GameState {
+    GameState(foundation::Allocator &allocator)
+    : giraffes(allocator)
+    , obstacles(allocator)
+    , food()
+    , lion()
+    , debug_draw(true)
+    , debug_avoidance(false)
+    {}
+//    ~GameState();
+//    DELETE_COPY_AND_MOVE(GameState)
 
     foundation::Array<Giraffe> giraffes;
     foundation::Array<Obstacle> obstacles;
@@ -105,6 +109,18 @@ struct Game {
 
     bool debug_draw;
     bool debug_avoidance;
+};
+
+struct Game {
+    Game(foundation::Allocator &allocator, const char *config_path);
+    ~Game();
+
+    foundation::Allocator &allocator;
+    ini_t *config;
+    engine::ActionBinds *action_binds;
+    engine::Sprites *sprites;
+    AppState app_state;
+    GameState game_state;
 };
 
 /**

@@ -68,7 +68,6 @@ int main(int argc, char *argv[]) {
         engine_callbacks.render = game::render;
         engine_callbacks.render_imgui = game::render_imgui;
         engine_callbacks.on_shutdown = game::on_shutdown;
-
         engine.engine_callbacks = &engine_callbacks;
         engine.game_object = &game;
 

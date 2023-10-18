@@ -13,6 +13,16 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(LIVE_PP False)
 set(SUPERLUMINAL False)
+# Compile for Lua 5.1
+set(HAS_LUA True)
+
+# Compile for LuaJIT
+set(HAS_LUAJIT False)
+
+if (HAS_LUA AND HAS_LUAJIT)
+    message(FATAL_ERROR "Can't compile with both HAS_LUA and HAS_LUAJIT")
+endif()
+
 
 # Find locally installed dependencies. Tip: Use VCPKG for these.
 
@@ -48,9 +58,13 @@ set(SRC_giraffe
     "src/game_state_playing.cpp"
     "src/rnd.h"
     "src/util.h"
+    "src/if_game.h"
+    "src/if_game.cpp"
 )
 
-set(HAS_LUA True)
+if (HAS_LUA OR HAS_LUAJIT)
+    list(FILTER SRC_giraffe EXCLUDE REGEX "src/game_state_playing.cpp")
+endif()
 
 if (HAS_LUA)
 set(SRC_LUA
@@ -115,8 +129,19 @@ add_executable(${PROJECT_NAME}
     ${SRC_giraffe}
 )
 
+if (HAS_LUA OR HAS_LUAJIT)
+    set(SRC_interface
+        "src/if_game.h"
+        "src/if_game.cpp"
+    )
+
+    target_sources(${PROJECT_NAME} PRIVATE ${SRC_interface})
+endif()
+
 if (HAS_LUA)
     target_sources(${PROJECT_NAME} PRIVATE ${SRC_LUA})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA)
+    include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/lua-5.1.5/src)
 endif()
 
 
@@ -128,10 +153,6 @@ endif()
 
 if (LIVE_PP)
     include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/LivePP/API/x64)
-endif()
-
-if (HAS_LUA)
-    include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/lua-5.1.5/src)
 endif()
 
 

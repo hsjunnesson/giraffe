@@ -11,7 +11,7 @@
     T(T &&) = delete;                 \
     T &operator=(T &&) = delete;
 
-bool ray_circle_intersection(const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 circle_center, float circle_radius, glm::vec2 &intersection) {
+inline bool ray_circle_intersection(const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 circle_center, float circle_radius, glm::vec2 &intersection) {
     glm::vec2 ray_dir = glm::normalize(ray_direction);
 
     // Check if origin is inside the circle
@@ -40,7 +40,7 @@ bool ray_circle_intersection(const glm::vec2 ray_origin, const glm::vec2 ray_dir
     return false;
 }
 
-bool ray_line_intersection(const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 p1, const glm::vec2 p2, glm::vec2 &intersection) {
+inline bool ray_line_intersection(const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 p1, const glm::vec2 p2, glm::vec2 &intersection) {
     const glm::vec2 line_dir = p2 - p1;
     float det = ray_direction.x * (-line_dir.y) - ray_direction.y * (-line_dir.x);
 
