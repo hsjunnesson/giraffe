@@ -26,7 +26,7 @@ inline bool ray_circle_intersection(const glm::vec2 ray_origin, const glm::vec2 
     if (t < 0.0f) {
         return false;
     }
-    
+
     glm::vec2 P = ray_origin + t * ray_dir;
 
     // If the nearest point is inside the circle, calculate intersection
@@ -56,7 +56,7 @@ inline bool ray_line_intersection(const glm::vec2 ray_origin, const glm::vec2 ra
         intersection = ray_origin + t * ray_direction;
         return true;
     }
-    
+
     return false;
 }
 

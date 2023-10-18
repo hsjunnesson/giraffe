@@ -3,10 +3,10 @@
 #pragma warning(push, 0)
 #include "collection_types.h"
 #include "memory_types.h"
+#include "util.h"
+#include <engine/math.inl>
 #include <glm/glm.hpp>
 #include <stdint.h>
-#include <engine/math.inl>
-#include "util.h"
 #pragma warning(pop)
 
 typedef struct ini_t ini_t;
@@ -97,10 +97,9 @@ struct GameState {
     , food()
     , lion()
     , debug_draw(true)
-    , debug_avoidance(false)
-    {}
-//    ~GameState();
-//    DELETE_COPY_AND_MOVE(GameState)
+    , debug_avoidance(false) {}
+    //    ~GameState();
+    //    DELETE_COPY_AND_MOVE(GameState)
 
     foundation::Array<Giraffe> giraffes;
     foundation::Array<Obstacle> obstacles;

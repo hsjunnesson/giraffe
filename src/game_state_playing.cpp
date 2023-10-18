@@ -24,8 +24,8 @@
 
 #include <algorithm>
 #include <imgui.h>
-#include <time.h>
 #include <limits.h>
+#include <time.h>
 
 namespace {
 rnd_pcg_t RANDOM_DEVICE;
@@ -71,8 +71,7 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
     Obstacle obstacle;
     obstacle.position = {
         (engine.window_rect.size.x / 2) + 200.0f * rnd_pcg_nextf(&RANDOM_DEVICE) - 100.0f,
-        (engine.window_rect.size.y / 2) + 200.0f * rnd_pcg_nextf(&RANDOM_DEVICE) - 100.0f
-    };
+        (engine.window_rect.size.y / 2) + 200.0f * rnd_pcg_nextf(&RANDOM_DEVICE) - 100.0f};
     obstacle.color = engine::color::pico8::blue;
     obstacle.radius = 100.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * 100.0f;
 
@@ -83,8 +82,7 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
         Obstacle obstacle;
         obstacle.position = {
             10.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.x - 20.0f),
-            10.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.y - 20.0f)
-        };
+            10.0f + rnd_pcg_nextf(&RANDOM_DEVICE) * (engine.window_rect.size.y - 20.0f)};
         obstacle.color = engine::color::pico8::light_gray;
         obstacle.radius = 20.0f;
 
@@ -99,12 +97,12 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
         const engine::Sprite sprite = engine::add_sprite(*game.sprites, "food", engine::color::pico8::green);
         game.game_state.food.sprite_id = sprite.id;
         game.game_state.food.position = {0.25f * engine.window_rect.size.x, 0.25f * engine.window_rect.size.y};
-        
+
         glm::mat4 transform = glm::mat4(1.0f);
         transform = glm::translate(transform, glm::vec3(
-                                                    floorf(game.game_state.food.position.x - sprite.atlas_frame->rect.size.x * sprite.atlas_frame->pivot.x),
-                                                    floorf(game.game_state.food.position.y - sprite.atlas_frame->rect.size.y * (1.0f - sprite.atlas_frame->pivot.y)),
-                                                    FOOD_Z_LAYER));
+                                                  floorf(game.game_state.food.position.x - sprite.atlas_frame->rect.size.x * sprite.atlas_frame->pivot.x),
+                                                  floorf(game.game_state.food.position.y - sprite.atlas_frame->rect.size.y * (1.0f - sprite.atlas_frame->pivot.y)),
+                                                  FOOD_Z_LAYER));
         transform = glm::scale(transform, {sprite.atlas_frame->rect.size.x, sprite.atlas_frame->rect.size.y, 1.0f});
         engine::transform_sprite(*game.sprites, game.game_state.food.sprite_id, Matrix4f(glm::value_ptr(transform)));
     }
@@ -186,9 +184,9 @@ void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::Inp
             const engine::Sprite *sprite = engine::get_sprite(*game.sprites, game.game_state.food.sprite_id);
             glm::mat4 transform = glm::mat4(1.0f);
             transform = glm::translate(transform, glm::vec3(
-                                                        floorf(game.game_state.food.position.x - sprite->atlas_frame->rect.size.x * sprite->atlas_frame->pivot.x),
-                                                        floorf(game.game_state.food.position.y - sprite->atlas_frame->rect.size.y * (1.0f - sprite->atlas_frame->pivot.y)),
-                                                        FOOD_Z_LAYER));
+                                                      floorf(game.game_state.food.position.x - sprite->atlas_frame->rect.size.x * sprite->atlas_frame->pivot.x),
+                                                      floorf(game.game_state.food.position.y - sprite->atlas_frame->rect.size.y * (1.0f - sprite->atlas_frame->pivot.y)),
+                                                      FOOD_Z_LAYER));
             transform = glm::scale(transform, {sprite->atlas_frame->rect.size.x, sprite->atlas_frame->rect.size.y, 1.0f});
             engine::transform_sprite(*game.sprites, game.game_state.food.sprite_id, Matrix4f(glm::value_ptr(transform)));
         }
@@ -398,10 +396,10 @@ void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float 
     }
 
     transform = glm::translate(transform, glm::vec3(
-                                                floorf(giraffe.mob.position.x - x_offset),
-                                                floorf(giraffe.mob.position.y - y_offset),
-                                                GIRAFFE_Z_LAYER));
-    transform = glm::scale(transform, {(flip_x ? -1.0f : 1.0f) * giraffe_frame->rect.size.x, (flip_y ? -1.0f : 1.0f) *giraffe_frame->rect.size.y, 1.0f});
+                                              floorf(giraffe.mob.position.x - x_offset),
+                                              floorf(giraffe.mob.position.y - y_offset),
+                                              GIRAFFE_Z_LAYER));
+    transform = glm::scale(transform, {(flip_x ? -1.0f : 1.0f) * giraffe_frame->rect.size.x, (flip_y ? -1.0f : 1.0f) * giraffe_frame->rect.size.y, 1.0f});
     engine::transform_sprite(*game.sprites, giraffe.sprite_id, Matrix4f(glm::value_ptr(transform)));
 }
 
@@ -483,9 +481,9 @@ void update_lion(Lion &lion, engine::Engine &engine, Game &game, float t, float 
         x_offset *= -1.0f;
     }
     transform = glm::translate(transform, glm::vec3(
-                                                floorf(lion.mob.position.x - x_offset),
-                                                floorf(lion.mob.position.y - lion_frame->rect.size.y * (1.0f - lion_frame->pivot.y)),
-                                                LION_Z_LAYER));
+                                              floorf(lion.mob.position.x - x_offset),
+                                              floorf(lion.mob.position.y - lion_frame->rect.size.y * (1.0f - lion_frame->pivot.y)),
+                                              LION_Z_LAYER));
     transform = glm::scale(transform, {(flip ? -1.0f : 1.0f) * lion_frame->rect.size.x, lion_frame->rect.size.y, 1.0f});
     engine::transform_sprite(*game.sprites, lion.sprite_id, Matrix4f(glm::value_ptr(transform)));
 }
@@ -593,7 +591,6 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
                 string_stream::printf(ss, "energy: %.0f", glm::length(game.game_state.lion.energy));
                 draw_list->AddText(ImVec2(origin.x, origin.y + 32), IM_COL32(255, 0, 0, 255), string_stream::c_str(ss));
             }
-
         }
 
         // food

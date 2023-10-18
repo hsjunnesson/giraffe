@@ -35,8 +35,7 @@ Game::Game(Allocator &allocator, const char *config_path)
 , action_binds(nullptr)
 , sprites(nullptr)
 , app_state(AppState::None)
-, game_state(allocator)
-{
+, game_state(allocator) {
     action_binds = MAKE_NEW(allocator, engine::ActionBinds, allocator, config_path);
     sprites = MAKE_NEW(allocator, engine::Sprites, allocator);
 
