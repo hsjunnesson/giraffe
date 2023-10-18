@@ -98,8 +98,8 @@ struct GameState {
     , lion()
     , debug_draw(true)
     , debug_avoidance(false) {}
-    //    ~GameState();
-    //    DELETE_COPY_AND_MOVE(GameState)
+    ~GameState(){};
+    DELETE_COPY_AND_MOVE(GameState)
 
     foundation::Array<Giraffe> giraffes;
     foundation::Array<Obstacle> obstacles;
