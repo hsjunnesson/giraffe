@@ -29,6 +29,7 @@ lua_State *L = nullptr;
 namespace lua {
 using namespace foundation;
 
+// Custom print function that uses engine logging.
 static int my_print(lua_State* L) {
     using namespace string_stream;
 
@@ -76,6 +77,8 @@ static int my_print(lua_State* L) {
     return 0;
 }
 
+// Getting around the issue that Lua 5.1 doesn't support uint64_t values.
+// Pushes a uint64_t value as a userdata object on the stack.
 sol::object push_uint64_t_to_lua(lua_State *L, uint64_t val) {
     sol::state_view lua(L);
     uint64_t *stored_val = static_cast<uint64_t *>(lua_newuserdata(lua.lua_state(), sizeof(uint64_t)));
@@ -83,11 +86,32 @@ sol::object push_uint64_t_to_lua(lua_State *L, uint64_t val) {
     return sol::make_object(lua, stored_val);
 }
 
+// Getting around the issue that Lua 5.1 doesn't support uint64_t values.
+// Gets a userdata from the stack and returns the uint64_t value.
 uint64_t retrieve_uint64_t_from_lua(const sol::userdata &userdata) {
     const uint64_t *data = static_cast<const uint64_t *>(userdata.pointer());
     return *data;
 }
 
+// Run a named global function in Lua with variadic arguments.
+template<typename... Args>
+inline void fun(const char *function_name, Args&&... args) {
+    sol::state_view lua(L);
+    sol::protected_function f = lua[function_name];
+
+    if (!f.valid()) {
+        log_fatal("[LUA] Invalid function %s", function_name);
+    }
+
+    sol::protected_function_result r = f(std::forward<Args>(args)...);
+
+    if (!r.valid()) {
+        sol::error err = r;
+        log_fatal("[LUA] Error in function %s: %s", function_name, err.what());
+    }
+}
+
+// Create the Engine module and export all functions, types, and enums that's used in this game.
 void init_engine_module(lua_State *L) {
     sol::state_view lua(L);
     sol::table engine = lua["Engine"].get_or_create<sol::table>();
@@ -172,6 +196,7 @@ void init_engine_module(lua_State *L) {
     }
 }
 
+// Create the Game module and export all functions, types, and enums that's used in this game.
 void init_game_module(lua_State *L) {
     sol::state_view lua(L);
 }
@@ -202,50 +227,31 @@ void initialize() {
 
 } // namespace lua
 
+// These are the implementation of the functions declared in game.cpp so that all the gameplay implementation runs in Lua.
 namespace game {
 
 void game_state_playing_enter(engine::Engine &engine, Game &game) {
-    sol::state_view lua(L);
-    lua["on_enter"](engine, game);
+    lua::fun("on_enter", engine, game);
 }
 
 void game_state_playing_leave(engine::Engine &engine, Game &game) {
-    sol::state_view lua(L);
-    lua["on_leave"](engine, game);
+    lua::fun("on_leave", engine, game);
 }
-
-template<typename... Args>
-inline void lua_fun(const char *function_name, Args&&... args) {
-    sol::state_view lua(L);
-    sol::protected_function f = lua[function_name];
-
-    if (!f.valid()) {
-        log_fatal("[LUA] Invalid function %s", function_name);
-    }
-
-    sol::protected_function_result r = f(std::forward<Args>(args)...);
-
-    if (!r.valid()) {
-        sol::error err = r;
-        log_fatal("[LUA] Error in function %s: %s", function_name, err.what());
-    }
-}
-
 
 void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::InputCommand &input_command) {
-    lua_fun("on_input", engine, game, input_command);
+    lua::fun("on_input", engine, game, input_command);
 }
 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
-    lua_fun("update", engine, game, t, dt);
+    lua::fun("update", engine, game, t, dt);
 }
 
 void game_state_playing_render(engine::Engine &engine, Game &game) {
-    lua_fun("render", engine, game);
+    lua::fun("render", engine, game);
 }
 
 void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
-    lua_fun("render_imgui", engine, game);
+    lua::fun("render_imgui", engine, game);
 }
 
 } // namespace game
