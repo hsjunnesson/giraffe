@@ -1,3 +1,12 @@
+local game_state = {
+    giraffes = {},
+    obstacles = {},
+    food = {},
+    lion = {},
+    debug_draw = false,
+    debug_avoidance = false,
+}
+
 function on_enter(engine, game)
 end
 
@@ -23,6 +32,14 @@ function on_input(engine, game, input_command)
            if pressed then
                Game.transition(engine, game, Game.AppState.Quitting)
            end
+        elseif action_hash == Game.ActionHash.DEBUG_DRAW then
+            if pressed then
+                game_state.debug_draw = not game_state.debug_draw
+            end
+        elseif action_hash == Game.ActionHash.DEBUG_AVOIDANCE then
+            if pressed then
+                game_state.debug_avoidance = not game_state.debug_avoidance
+            end
         end
     end
 end
