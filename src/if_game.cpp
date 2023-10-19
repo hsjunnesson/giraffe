@@ -6,6 +6,7 @@
 #include "array.h"
 #include "memory.h"
 
+#include <engine/engine.h>
 #include <engine/log.h>
 #include <engine/input.h>
 #include <engine/action_binds.h>
@@ -15,6 +16,9 @@ extern "C" {
 #include <lua.h>
 #include <lualib.h>
 }
+
+#define SOL_ALL_SAFETIES_ON 1
+#include <sol/sol.hpp>
 
 #if defined(HAS_LUA) || defined(HAS_LUAJIT)
 
@@ -45,6 +49,20 @@ static int my_print(lua_State* L) {
         } else {
             if (lua_isboolean(L, i)) {
                 ss << (lua_toboolean(L, 1) ? "True" : "False");
+            } else if (lua_isuserdata(L, i)) {
+                ss << "userdata";
+            } else if (lua_iscfunction(L, i)) {
+                ss << "c function";
+            } else if (lua_islightuserdata(L, i)) {
+                ss << "light userdata";
+            } else if (lua_isnil(L, i)) {
+                ss << "nil";
+            } else if (lua_isnone(L, i)) {
+                ss << "none";
+            } else if (lua_istable(L, i)) {
+                ss << "table";
+            } else if (lua_isthread(L, i)) {
+                ss << "thread";
             } else {
                 const char *type_name = luaL_typename(L, i);
                 log_fatal("Could not convert argument %s to string", type_name);
@@ -58,105 +76,104 @@ static int my_print(lua_State* L) {
     return 0;
 }
 
-/*
-void init_engine_module(lua_State *L) {
-    lua_newtable(L);
+sol::object push_uint64_t_to_lua(lua_State *L, uint64_t val) {
+    sol::state_view lua(L);
+    uint64_t *stored_val = static_cast<uint64_t *>(lua_newuserdata(lua.lua_state(), sizeof(uint64_t)));
+    *stored_val = val;
+    return sol::make_object(lua, stored_val);
+}
 
-    // action_binds.h
-    {
-        lua_pushstring(L, "action_key_for_input_command");
-        lua_pushcfunction(L, l_action_key_for_input_command);
-        lua_settable(L, -3);
-    }
+uint64_t retrieve_uint64_t_from_lua(const sol::userdata &userdata) {
+    const uint64_t *data = static_cast<const uint64_t *>(userdata.pointer());
+    return *data;
+}
+
+void init_engine_module(lua_State *L) {
+    sol::state_view lua(L);
+    sol::table engine = lua["Engine"].get_or_create<sol::table>();
+
+    engine["push_identifier"] = push_uint64_t_to_lua;
+    engine["retrieve_identifier"] = retrieve_uint64_t_from_lua;
+    engine["valid_identifier"] = [](sol::userdata userdata) -> bool {
+        uint64_t value = retrieve_uint64_t_from_lua(userdata);
+        return value != 0;
+    };
 
     // input.h
     {
-        {
-            lua_pushstring(L, "InputType");
-            lua_newtable(L);
+        engine.new_enum("InputType",
+            "None", engine::InputType::None,
+            "Mouse", engine::InputType::Mouse,
+            "Key", engine::InputType::Key,
+            "Scroll", engine::InputType::Scroll
+        );
 
-            lua_pushstring(L, "None");
-            lua_pushinteger(L, static_cast<int>(engine::InputType::None));
-            lua_settable(L, -3);
+        engine.new_enum("MouseAction",
+            "None", engine::MouseAction::None,
+            "MouseMoved", engine::MouseAction::MouseMoved,
+            "MouseTrigger", engine::MouseAction::MouseTrigger
+        );
 
-            lua_pushstring(L, "Mouse");
-            lua_pushinteger(L, static_cast<int>(engine::InputType::Mouse));
-            lua_settable(L, -3);
+        engine.new_enum("TriggerState",
+            "None", engine::TriggerState::None,
+            "Pressed", engine::TriggerState::Pressed,
+            "Released", engine::TriggerState::Released,
+            "Repeated", engine::TriggerState::Repeated
+        );
 
-            lua_pushstring(L, "Key");
-            lua_pushinteger(L, static_cast<int>(engine::InputType::Key));
-            lua_settable(L, -3);
+        engine.new_enum("CursorMode",
+            "Normal", engine::CursorMode::Normal,
+            "Hidden", engine::CursorMode::Hidden
+        );
 
-            lua_pushstring(L, "Scroll");
-            lua_pushinteger(L, static_cast<int>(engine::InputType::Scroll));
-            lua_settable(L, -3);
+        lua.new_usertype<engine::KeyState>("KeyState",
+            "keycode", &engine::KeyState::keycode,
+            "trigger_state", &engine::KeyState::trigger_state,
+            "shift_state", &engine::KeyState::shift_state,
+            "alt_state", &engine::KeyState::alt_state,
+            "ctrl_state", &engine::KeyState::ctrl_state
+        );
 
-            lua_settable(L, -3);
-        }
+        lua.new_usertype<engine::MouseState>("MouseState",
+            "mouse_action", &engine::MouseState::mouse_action,
+            "mouse_position", &engine::MouseState::mouse_position,
+            "mouse_relative_motion", &engine::MouseState::mouse_relative_motion,
+            "mouse_left_state", &engine::MouseState::mouse_left_state,
+            "mouse_right_state", &engine::MouseState::mouse_right_state
+        );
 
-        {
-            lua_pushstring(L, "MouseAction");
-            lua_newtable(L);
+        lua.new_usertype<engine::ScrollState>("ScrollState",
+            "x_offset", &engine::ScrollState::x_offset,
+            "y_offset", &engine::ScrollState::y_offset
+        );
 
-            lua_pushstring(L, "None");
-            lua_pushinteger(L, static_cast<int>(engine::MouseAction::None));
-            lua_settable(L, -3);
-
-            lua_pushstring(L, "MouseMoved");
-            lua_pushinteger(L, static_cast<int>(engine::MouseAction::MouseMoved));
-            lua_settable(L, -3);
-
-            lua_pushstring(L, "MouseTrigger");
-            lua_pushinteger(L, static_cast<int>(engine::MouseAction::MouseTrigger));
-            lua_settable(L, -3);
-
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "TriggerState");
-            lua_newtable(L);
-
-            lua_pushstring(L, "None");
-            lua_pushinteger(L, static_cast<int>(engine::TriggerState::None));
-            lua_settable(L, -3);
-
-            lua_pushstring(L, "Pressed");
-            lua_pushinteger(L, static_cast<int>(engine::TriggerState::Pressed));
-            lua_settable(L, -3);
-
-            lua_pushstring(L, "Released");
-            lua_pushinteger(L, static_cast<int>(engine::TriggerState::Released));
-            lua_settable(L, -3);
-
-            lua_pushstring(L, "Repeated");
-            lua_pushinteger(L, static_cast<int>(engine::TriggerState::Repeated));
-            lua_settable(L, -3);
-
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "CursorMode");
-            lua_newtable(L);
-
-            lua_pushstring(L, "Normal");
-            lua_pushinteger(L, static_cast<int>(engine::CursorMode::Normal));
-            lua_settable(L, -3);
-
-            lua_pushstring(L, "Hidden");
-            lua_pushinteger(L, static_cast<int>(engine::CursorMode::Hidden));
-            lua_settable(L, -3);
-
-            lua_settable(L, -3);
-        }
+        lua.new_usertype<engine::InputCommand>("InputCommand",
+            "input_type", &engine::InputCommand::input_type,
+            "key_state", &engine::InputCommand::key_state,
+            "mouse_state", &engine::InputCommand::mouse_state,
+            "scroll_state", &engine::InputCommand::scroll_state
+        );
     }
 
-    lua_setglobal(L, "Engine");
-}
-*/
+    // action_binds.h
+    {
+        sol::table action_binds_table = engine["ActionBindsBind"].get_or_create<sol::table>();
+        for (int i = static_cast<int>(engine::ActionBindsBind::FIRST) + 1; i < static_cast<int>(engine::ActionBindsBind::LAST); ++i) {
+            engine::ActionBindsBind bind = static_cast<engine::ActionBindsBind>(i);
+            action_binds_table[engine::bind_descriptor(bind)] = i;
+        }
 
-void init_engine_module(lua_State *L) {
+        engine["bind_descriptor"] = engine::bind_descriptor;
+        engine["bind_for_keycode"] = engine::bind_for_keycode;
+        engine["action_key_for_input_command"] = [L](const engine::InputCommand &input_command) {
+            uint64_t result = engine::action_key_for_input_command(input_command);
+            return push_uint64_t_to_lua(L, result);
+        };
+    }
+}
+
+void init_game_module(lua_State *L) {
+    sol::state_view lua(L);
 }
 
 void initialize() {
@@ -170,7 +187,8 @@ void initialize() {
     lua_setglobal(L, "print");
 
     init_engine_module(L);
-
+    init_game_module(L);
+    
     int load_status = luaL_loadfile(L, "scripts/main.lua");
     if (load_status) {
         log_fatal("Could not load scripts/main.lua: %s", lua_tostring(L, -1));
@@ -187,185 +205,47 @@ void initialize() {
 namespace game {
 
 void game_state_playing_enter(engine::Engine &engine, Game &game) {
-    lua_getglobal(L, "on_enter");
-
-    lua_pushlightuserdata(L, &engine);
-    lua_pushlightuserdata(L, &game);
-
-    if (lua_pcall(L, 2, 0, 0) != 0) {
-        log_fatal("Error in on_enter: %s", lua_tostring(L, -1));
-    }
+    sol::state_view lua(L);
+    lua["on_enter"](engine, game);
 }
 
 void game_state_playing_leave(engine::Engine &engine, Game &game) {
-    lua_getglobal(L, "on_leave");
+    sol::state_view lua(L);
+    lua["on_leave"](engine, game);
+}
 
-    lua_pushlightuserdata(L, &engine);
-    lua_pushlightuserdata(L, &game);
+template<typename... Args>
+inline void lua_fun(const char *function_name, Args&&... args) {
+    sol::state_view lua(L);
+    sol::protected_function f = lua[function_name];
 
-    if (lua_pcall(L, 2, 0, 0) != 0) {
-        log_fatal("Error in on_leave: %s", lua_tostring(L, -1));
+    if (!f.valid()) {
+        log_fatal("[LUA] Invalid function %s", function_name);
+    }
+
+    sol::protected_function_result r = f(std::forward<Args>(args)...);
+
+    if (!r.valid()) {
+        sol::error err = r;
+        log_fatal("[LUA] Error in function %s: %s", function_name, err.what());
     }
 }
 
+
 void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::InputCommand &input_command) {
-    lua_getglobal(L, "on_input");
-
-    lua_pushlightuserdata(L, &engine);
-    lua_pushlightuserdata(L, &game);
-
-    lua_newtable(L);
-
-    lua_pushstring(L, "input_type");
-    lua_pushinteger(L, static_cast<int>(input_command.input_type));
-    lua_settable(L, -3);
-
-    switch (input_command.input_type) {
-    case engine::InputType::Mouse: {
-        lua_pushstring(L, "mouse_state");
-        lua_newtable(L);
-
-        {
-            lua_pushstring(L, "mouse_action");
-            lua_pushinteger(L, static_cast<int>(input_command.mouse_state.mouse_action));
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "mouse_position");
-            lua_newtable(L);
-            lua_pushstring(L, "x");
-            lua_pushnumber(L, input_command.mouse_state.mouse_position.x);
-            lua_settable(L, -3);
-            lua_pushstring(L, "y");
-            lua_pushnumber(L, input_command.mouse_state.mouse_position.y);
-            lua_settable(L, -3);
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "mouse_relative_motion");
-            lua_newtable(L);
-            lua_pushstring(L, "x");
-            lua_pushnumber(L, input_command.mouse_state.mouse_relative_motion.x);
-            lua_settable(L, -3);
-            lua_pushstring(L, "y");
-            lua_pushnumber(L, input_command.mouse_state.mouse_relative_motion.y);
-            lua_settable(L, -3);
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "mouse_left_state");
-            lua_pushinteger(L, static_cast<int>(input_command.mouse_state.mouse_left_state));
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "mouse_right_state");
-            lua_pushinteger(L, static_cast<int>(input_command.mouse_state.mouse_right_state));
-            lua_settable(L, -3);
-        }
-
-        lua_settable(L, -3);
-        break;
-    }
-    case engine::InputType::Key: {
-        lua_pushstring(L, "key_state");
-        lua_newtable(L);
-
-        {
-            lua_pushstring(L, "keycode");
-            lua_pushinteger(L, static_cast<int>(input_command.key_state.keycode));
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "trigger_state");
-            lua_pushinteger(L, static_cast<int>(input_command.key_state.trigger_state));
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "shift_state");
-            lua_pushboolean(L, input_command.key_state.shift_state);
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "alt_state");
-            lua_pushboolean(L, input_command.key_state.alt_state);
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "ctrl_state");
-            lua_pushboolean(L, input_command.key_state.ctrl_state);
-            lua_settable(L, -3);
-        }
-
-        lua_settable(L, -3);
-        break;
-    }
-    case engine::InputType::Scroll: {
-        lua_pushstring(L, "scroll_state");
-        lua_newtable(L);
-
-        {
-            lua_pushstring(L, "x_offset");
-            lua_pushnumber(L, input_command.scroll_state.x_offset);
-            lua_settable(L, -3);
-        }
-
-        {
-            lua_pushstring(L, "y_offset");
-            lua_pushnumber(L, input_command.scroll_state.y_offset);
-            lua_settable(L, -3);
-        }
-
-        lua_settable(L, -3);
-        break;
-    }
-    }
-
-    if (lua_pcall(L, 3, 0, 0) != 0) {
-        log_fatal("Error in on_input: %s", lua_tostring(L, -1));
-    }
+    lua_fun("on_input", engine, game, input_command);
 }
 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
-    lua_getglobal(L, "update");
-
-    lua_pushlightuserdata(L, &engine);
-    lua_pushlightuserdata(L, &game);
-    lua_pushnumber(L, t);
-    lua_pushnumber(L, dt);
-
-    if (lua_pcall(L, 4, 0, 0) != 0) {
-        log_fatal("Error in update: %s", lua_tostring(L, -1));
-    }
+    lua_fun("update", engine, game, t, dt);
 }
 
 void game_state_playing_render(engine::Engine &engine, Game &game) {
-    lua_getglobal(L, "render");
-
-    lua_pushlightuserdata(L, &engine);
-    lua_pushlightuserdata(L, &game);
-
-    if (lua_pcall(L, 2, 0, 0) != 0) {
-        log_fatal("Error in render: %s", lua_tostring(L, -1));
-    }
+    lua_fun("render", engine, game);
 }
 
 void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
-    lua_getglobal(L, "render_imgui");
-
-    lua_pushlightuserdata(L, &engine);
-    lua_pushlightuserdata(L, &game);
-
-    if (lua_pcall(L, 2, 0, 0) != 0) {
-        log_fatal("Error in render_imgui: %s", lua_tostring(L, -1));
-    }
+    lua_fun("render_imgui", engine, game);
 }
 
 } // namespace game

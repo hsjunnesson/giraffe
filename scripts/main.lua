@@ -11,11 +11,15 @@ function on_input(engine, game, input_command)
 
         local bind_action_key = Engine.action_key_for_input_command(input_command)
 
-        if bind_action_key == 0 then
-            return
+        if Engine.valid_identifier(bind_action_key) then
+            print("bind_action_key: " .. type(bind_action_key))
         end
 
-        print("Bind action key: " .. bind_action_key)
+        -- if bind_action_key == 0 then
+        --     return
+        -- end
+
+        -- print("Bind action key: " .. bind_action_key)
     end
 end
 

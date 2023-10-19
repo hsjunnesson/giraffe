@@ -26,6 +26,8 @@ endif()
 
 # Find locally installed dependencies. Tip: Use VCPKG for these.
 
+find_package(sol2 CONFIG REQUIRED)
+
 if (SUPERLUMINAL)
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Program Files/Superluminal/Performance/API")
     find_package(SuperluminalAPI REQUIRED)
@@ -159,6 +161,7 @@ endif()
 # Linked libraries
 
 target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)
+target_link_libraries(${PROJECT_NAME} PRIVATE sol2)
 
 if (SUPERLUMINAL)
     target_link_libraries(${PROJECT_NAME} PRIVATE SuperluminalAPI)
