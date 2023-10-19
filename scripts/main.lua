@@ -1,5 +1,4 @@
 function on_enter(engine, game)
-    print("InputType: ", Engine.InputType.None)
 end
 
 function on_leave(engine, game)

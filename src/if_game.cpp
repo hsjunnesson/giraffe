@@ -5,7 +5,6 @@
 #include "string_stream.h"
 #include "array.h"
 #include "memory.h"
-#include "luaaa.hpp"
 
 #include <engine/log.h>
 #include <engine/input.h>
@@ -25,7 +24,6 @@ lua_State *L = nullptr;
 
 namespace lua {
 using namespace foundation;
-using namespace luaaa;
 
 static int my_print(lua_State* L) {
     using namespace string_stream;
@@ -59,15 +57,6 @@ static int my_print(lua_State* L) {
 
     return 0;
 }
-
-// static int l_action_key_for_input_command(lua_State *L) {
-//     engine::InputCommand input_command;
-
-//     uint64_t action_key = engine::action_key_for_input_command(input_command);
-//     lua_pushinteger(L, action_key);
-
-//     return 1;
-// }
 
 /*
 void init_engine_module(lua_State *L) {
@@ -168,23 +157,13 @@ void init_engine_module(lua_State *L) {
 */
 
 void init_engine_module(lua_State *L) {
-    using namespace engine;
-
-    LuaModule engine_module = LuaModule(L, "Engine");
-
-    LuaClass<InputType> lua_InputType(L, "InputType");
-
-    engine_module.def("InputType", lua_InputType);
-    
-//    engine_module.def("InputType", engine::InputType);
-
-//    engine_module.fun("action_key_for_input_command", action_key_for_input_command);
 }
 
 void initialize() {
     log_info("Initializing lua");
 
     L = luaL_newstate();
+    luaopen_base(L);
     luaL_openlibs(L);
 
     lua_pushcfunction(L, my_print);

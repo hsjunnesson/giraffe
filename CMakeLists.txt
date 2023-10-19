@@ -133,7 +133,6 @@ if (HAS_LUA OR HAS_LUAJIT)
     set(SRC_interface
         "src/if_game.h"
         "src/if_game.cpp"
-        "src/luaaa.hpp"
     )
 
     target_sources(${PROJECT_NAME} PRIVATE ${SRC_interface})
