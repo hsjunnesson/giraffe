@@ -11,9 +11,12 @@ function on_input(engine, game, input_command)
 
         local bind_action_key = Engine.action_key_for_input_command(input_command)
 
-        if Engine.valid_identifier(bind_action_key) then
-            print("bind_action_key: " .. type(bind_action_key))
+        if not valid_identifier(bind_action_key) then
+            return
         end
+
+        print(Game.ActionHash.QUIT == Game.ActionHash.NONE)
+        print(Game.ActionHash.QUIT == Game.ActionHash.QUIT)
 
         -- if bind_action_key == 0 then
         --     return

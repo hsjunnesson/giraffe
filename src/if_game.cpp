@@ -79,7 +79,7 @@ static int my_print(lua_State* L) {
 
 // Getting around the issue that Lua 5.1 doesn't support uint64_t values.
 // Pushes a uint64_t value as a userdata object on the stack.
-sol::object push_uint64_t_to_lua(lua_State *L, uint64_t val) {
+inline sol::object push_uint64_t_to_lua(lua_State *L, uint64_t val) {
     sol::state_view lua(L);
     uint64_t *stored_val = static_cast<uint64_t *>(lua_newuserdata(lua.lua_state(), sizeof(uint64_t)));
     *stored_val = val;
@@ -88,7 +88,7 @@ sol::object push_uint64_t_to_lua(lua_State *L, uint64_t val) {
 
 // Getting around the issue that Lua 5.1 doesn't support uint64_t values.
 // Gets a userdata from the stack and returns the uint64_t value.
-uint64_t retrieve_uint64_t_from_lua(const sol::userdata &userdata) {
+inline uint64_t retrieve_uint64_t_from_lua(const sol::userdata &userdata) {
     const uint64_t *data = static_cast<const uint64_t *>(userdata.pointer());
     return *data;
 }
@@ -115,13 +115,6 @@ inline void fun(const char *function_name, Args&&... args) {
 void init_engine_module(lua_State *L) {
     sol::state_view lua(L);
     sol::table engine = lua["Engine"].get_or_create<sol::table>();
-
-    engine["push_identifier"] = push_uint64_t_to_lua;
-    engine["retrieve_identifier"] = retrieve_uint64_t_from_lua;
-    engine["valid_identifier"] = [](sol::userdata userdata) -> bool {
-        uint64_t value = retrieve_uint64_t_from_lua(userdata);
-        return value != 0;
-    };
 
     // input.h
     {
@@ -199,6 +192,16 @@ void init_engine_module(lua_State *L) {
 // Create the Game module and export all functions, types, and enums that's used in this game.
 void init_game_module(lua_State *L) {
     sol::state_view lua(L);
+    sol::table game = lua["Game"].get_or_create<sol::table>();
+
+    sol::table action_hash = game["ActionHash"].get_or_create<sol::table>();
+    action_hash["NONE"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::NONE));
+    action_hash["QUIT"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::QUIT));
+    action_hash["DEBUG_DRAW"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::DEBUG_DRAW));
+    action_hash["DEBUG_AVOIDANCE"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::DEBUG_AVOIDANCE));
+    action_hash["ADD_ONE"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::ADD_ONE));
+    action_hash["ADD_FIVE"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::ADD_FIVE));
+    action_hash["ADD_TEN"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::ADD_TEN));
 }
 
 void initialize() {
@@ -210,6 +213,29 @@ void initialize() {
 
     lua_pushcfunction(L, my_print);
     lua_setglobal(L, "print");
+
+    // Set uint64_t type
+    {
+        sol::state_view lua(L);
+
+        sol::usertype<uint64_t> uint64_t_usertype = lua.new_usertype<uint64_t>("uint64_t");
+        uint64_t_usertype["__eq"] = [](sol::object lhs_obj, sol::object rhs_obj) {
+            if (lhs_obj.is<sol::userdata>() && rhs_obj.is<sol::userdata>()) {
+                uint64_t lhs = retrieve_uint64_t_from_lua(lhs_obj);
+                uint64_t rhs = retrieve_uint64_t_from_lua(rhs_obj);
+                return lhs == rhs;
+            } else {
+                return false;
+            }
+        };
+
+        lua["push_identifier"] = push_uint64_t_to_lua;
+        lua["retrieve_identifier"] = retrieve_uint64_t_from_lua;
+        lua["valid_identifier"] = [](sol::userdata userdata) -> bool {
+            uint64_t value = retrieve_uint64_t_from_lua(userdata);
+            return value != 0;
+        };
+    }
 
     init_engine_module(L);
     init_game_module(L);
