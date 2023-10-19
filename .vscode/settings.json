@@ -106,7 +106,8 @@
     "charconv": "cpp",
     "random": "cpp",
     "*.inc": "cpp",
-    "cassert": "cpp"
+    "cassert": "cpp",
+    "variant": "cpp"
   },
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
   "cmake.debugConfig": {

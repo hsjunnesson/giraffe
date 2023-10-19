@@ -5,7 +5,10 @@
 #include "string_stream.h"
 #include "array.h"
 #include "memory.h"
+#include "hash.h"
+#include "util.h"
 
+#include <engine/sprites.h>
 #include <engine/engine.h>
 #include <engine/log.h>
 #include <engine/input.h>
@@ -71,27 +74,23 @@ static int my_print(lua_State* L) {
         }
     }
 
-    log_debug("[LUA] %s", c_str(ss));
+    log_info("[LUA] %s", c_str(ss));
     lua_pop(L, nargs);
 
     return 0;
 }
 
-// Getting around the issue that Lua 5.1 doesn't support uint64_t values.
-// Pushes a uint64_t value as a userdata object on the stack.
-inline sol::object push_uint64_t_to_lua(lua_State *L, uint64_t val) {
-    sol::state_view lua(L);
-    uint64_t *stored_val = static_cast<uint64_t *>(lua_newuserdata(lua.lua_state(), sizeof(uint64_t)));
-    *stored_val = val;
-    return sol::make_object(lua, stored_val);
-}
+struct Identifier {
+    uint64_t value;
+    
+    explicit Identifier(uint64_t value)
+    : value(value)
+    {}
 
-// Getting around the issue that Lua 5.1 doesn't support uint64_t values.
-// Gets a userdata from the stack and returns the uint64_t value.
-inline uint64_t retrieve_uint64_t_from_lua(const sol::userdata &userdata) {
-    const uint64_t *data = static_cast<const uint64_t *>(userdata.pointer());
-    return *data;
-}
+    bool valid() {
+        return value != 0;
+    }
+};
 
 // Run a named global function in Lua with variadic arguments.
 template<typename... Args>
@@ -143,7 +142,7 @@ void init_engine_module(lua_State *L) {
             "Hidden", engine::CursorMode::Hidden
         );
 
-        lua.new_usertype<engine::KeyState>("KeyState",
+        engine.new_usertype<engine::KeyState>("KeyState",
             "keycode", &engine::KeyState::keycode,
             "trigger_state", &engine::KeyState::trigger_state,
             "shift_state", &engine::KeyState::shift_state,
@@ -151,7 +150,7 @@ void init_engine_module(lua_State *L) {
             "ctrl_state", &engine::KeyState::ctrl_state
         );
 
-        lua.new_usertype<engine::MouseState>("MouseState",
+        engine.new_usertype<engine::MouseState>("MouseState",
             "mouse_action", &engine::MouseState::mouse_action,
             "mouse_position", &engine::MouseState::mouse_position,
             "mouse_relative_motion", &engine::MouseState::mouse_relative_motion,
@@ -159,12 +158,12 @@ void init_engine_module(lua_State *L) {
             "mouse_right_state", &engine::MouseState::mouse_right_state
         );
 
-        lua.new_usertype<engine::ScrollState>("ScrollState",
+        engine.new_usertype<engine::ScrollState>("ScrollState",
             "x_offset", &engine::ScrollState::x_offset,
             "y_offset", &engine::ScrollState::y_offset
         );
 
-        lua.new_usertype<engine::InputCommand>("InputCommand",
+        engine.new_usertype<engine::InputCommand>("InputCommand",
             "input_type", &engine::InputCommand::input_type,
             "key_state", &engine::InputCommand::key_state,
             "mouse_state", &engine::InputCommand::mouse_state,
@@ -180,11 +179,15 @@ void init_engine_module(lua_State *L) {
             action_binds_table[engine::bind_descriptor(bind)] = i;
         }
 
+        engine.new_usertype<engine::ActionBinds>("ActionBinds",
+            "bind_actions", &engine::ActionBinds::bind_actions
+        );
+
         engine["bind_descriptor"] = engine::bind_descriptor;
         engine["bind_for_keycode"] = engine::bind_for_keycode;
         engine["action_key_for_input_command"] = [L](const engine::InputCommand &input_command) {
             uint64_t result = engine::action_key_for_input_command(input_command);
-            return push_uint64_t_to_lua(L, result);
+            return Identifier(result);
         };
     }
 }
@@ -194,14 +197,64 @@ void init_game_module(lua_State *L) {
     sol::state_view lua(L);
     sol::table game = lua["Game"].get_or_create<sol::table>();
 
-    sol::table action_hash = game["ActionHash"].get_or_create<sol::table>();
-    action_hash["NONE"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::NONE));
-    action_hash["QUIT"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::QUIT));
-    action_hash["DEBUG_DRAW"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::DEBUG_DRAW));
-    action_hash["DEBUG_AVOIDANCE"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::DEBUG_AVOIDANCE));
-    action_hash["ADD_ONE"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::ADD_ONE));
-    action_hash["ADD_FIVE"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::ADD_FIVE));
-    action_hash["ADD_TEN"] = push_uint64_t_to_lua(L, static_cast<uint64_t>(game::ActionHash::ADD_TEN));
+    // ActionHash
+    {
+        sol::table action_hash = game["ActionHash"].get_or_create<sol::table>();
+        action_hash["NONE"] =            Identifier(static_cast<uint64_t>(game::ActionHash::NONE));
+        action_hash["QUIT"] =            Identifier(static_cast<uint64_t>(game::ActionHash::QUIT));
+        action_hash["DEBUG_DRAW"] =      Identifier(static_cast<uint64_t>(game::ActionHash::DEBUG_DRAW));
+        action_hash["DEBUG_AVOIDANCE"] = Identifier(static_cast<uint64_t>(game::ActionHash::DEBUG_AVOIDANCE));
+        action_hash["ADD_ONE"] =         Identifier(static_cast<uint64_t>(game::ActionHash::ADD_ONE));
+        action_hash["ADD_FIVE"] =        Identifier(static_cast<uint64_t>(game::ActionHash::ADD_FIVE));
+        action_hash["ADD_TEN"] =         Identifier(static_cast<uint64_t>(game::ActionHash::ADD_TEN));
+
+    }
+
+    // AppState
+    {
+        sol::table app_state = game["AppState"].get_or_create<sol::table>();
+        app_state["None"] =         Identifier(static_cast<uint64_t>(game::AppState::None));
+        app_state["Initializing"] = Identifier(static_cast<uint64_t>(game::AppState::Initializing));
+        app_state["Playing"] =      Identifier(static_cast<uint64_t>(game::AppState::Playing));
+        app_state["Quitting"] =     Identifier(static_cast<uint64_t>(game::AppState::Quitting));
+        app_state["Terminate"] =    Identifier(static_cast<uint64_t>(game::AppState::Terminate));
+    }
+
+    game.new_usertype<game::Game>("Game",
+        "action_binds", &game::Game::action_binds,
+        "sprites", &game::Game::sprites
+    );
+
+    game["transition"] = [](engine::Engine &engine, game::Game &game, Identifier app_state_identifier) {
+        game::AppState app_state = static_cast<game::AppState>(app_state_identifier.value);
+        game::transition(engine, &game, app_state);
+    };
+}
+
+void init_foundation_module(lua_State *L) {
+    sol::state_view lua(L);
+
+    // hash.h
+    {
+        sol::table hash = lua["Hash"].get_or_create<sol::table>();
+
+        // Specific getter for Hash<uint64_t> types. Maps of Identifiers, basically.
+        hash["get_identifier"] = [](const foundation::Hash<uint64_t> &hash, sol::userdata key, sol::userdata default_value) {
+            if (!key.is<Identifier>()) {
+                log_fatal("Invalid key in Hash.get_identifier, not an Identifier");
+            }
+
+            if (!default_value.is<Identifier>()) {
+                log_fatal("Invalid default_value in Hash.get_identifier, not an Identifier");
+            }
+
+            const Identifier &key_identifier = key.as<Identifier>();
+            const Identifier &default_value_identifier = default_value.as<Identifier>();
+
+            const uint64_t &result = foundation::hash::get(hash, key_identifier.value, default_value_identifier.value);
+            return Identifier(result);
+        };
+    }
 }
 
 void initialize() {
@@ -214,32 +267,29 @@ void initialize() {
     lua_pushcfunction(L, my_print);
     lua_setglobal(L, "print");
 
-    // Set uint64_t type
+    // Wrap uint64_t identifiers for Lua 5.1 that doesn't support 64 bit numbers
     {
         sol::state_view lua(L);
 
-        sol::usertype<uint64_t> uint64_t_usertype = lua.new_usertype<uint64_t>("uint64_t");
-        uint64_t_usertype["__eq"] = [](sol::object lhs_obj, sol::object rhs_obj) {
-            if (lhs_obj.is<sol::userdata>() && rhs_obj.is<sol::userdata>()) {
-                uint64_t lhs = retrieve_uint64_t_from_lua(lhs_obj);
-                uint64_t rhs = retrieve_uint64_t_from_lua(rhs_obj);
-                return lhs == rhs;
+        sol::usertype<Identifier> identifier_type = lua.new_usertype<Identifier>("Identifier",
+            "valid", &Identifier::valid
+        );
+
+        identifier_type[sol::meta_function::equal_to] = [](sol::object lhs_obj, sol::object rhs_obj) {
+            if (lhs_obj.is<Identifier>() && rhs_obj.is<Identifier>()) {
+                const Identifier &lhs = lhs_obj.as<Identifier>();
+                const Identifier &rhs = rhs_obj.as<Identifier>();
+                return lhs.value == rhs.value;
             } else {
                 return false;
             }
-        };
-
-        lua["push_identifier"] = push_uint64_t_to_lua;
-        lua["retrieve_identifier"] = retrieve_uint64_t_from_lua;
-        lua["valid_identifier"] = [](sol::userdata userdata) -> bool {
-            uint64_t value = retrieve_uint64_t_from_lua(userdata);
-            return value != 0;
         };
     }
 
     init_engine_module(L);
     init_game_module(L);
-    
+    init_foundation_module(L);
+
     int load_status = luaL_loadfile(L, "scripts/main.lua");
     if (load_status) {
         log_fatal("Could not load scripts/main.lua: %s", lua_tostring(L, -1));
