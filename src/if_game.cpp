@@ -13,6 +13,8 @@
 #include <engine/log.h>
 #include <engine/input.h>
 #include <engine/action_binds.h>
+#include <glm/glm.hpp>
+#include <engine/math.inl>
 
 extern "C" {
 #include <lauxlib.h>
@@ -31,6 +33,7 @@ lua_State *L = nullptr;
 
 namespace lua {
 using namespace foundation;
+using namespace foundation::string_stream;
 
 // Custom print function that uses engine logging.
 static int my_print(lua_State* L) {
@@ -114,6 +117,13 @@ inline void fun(const char *function_name, Args&&... args) {
 void init_engine_module(lua_State *L) {
     sol::state_view lua(L);
     sol::table engine = lua["Engine"].get_or_create<sol::table>();
+
+    // engine.h
+    {
+        engine.new_usertype<engine::Engine>("Engine",
+            "window_rect", &engine::Engine::window_rect
+        );
+    }
 
     // input.h
     {
@@ -257,6 +267,50 @@ void init_foundation_module(lua_State *L) {
     }
 }
 
+void init_glm_module(lua_State *L) {
+    sol::state_view lua(L);
+    sol::table glm = lua["Glm"].get_or_create<sol::table>();
+
+    glm.new_usertype<glm::vec2>("vec2",
+        sol::constructors<glm::vec2(), glm::vec2(float, float)>(),
+        "x", &glm::vec2::x,
+        "y", &glm::vec2::y,
+        sol::meta_function::to_string, [L](const glm::vec2 &v) {
+            TempAllocator64 ta;
+            Buffer ss(ta);
+            printf(ss, "vec2(%f, %f)", v.x, v.y);
+            return sol::make_object(L, c_str(ss));
+        }
+    );
+}
+
+void init_math_module(lua_State *L) {
+    sol::state_view lua(L);
+    sol::table math = lua["Math"].get_or_create<sol::table>();
+
+    math.new_usertype<math::Vector2>("Vector2",
+        "x", &math::Vector2::x,
+        "y", &math::Vector2::y
+    );
+
+    math.new_usertype<math::Vector2f>("Vector2f",
+        "x", &math::Vector2f::x,
+        "y", &math::Vector2f::y
+    );
+
+    math.new_usertype<math::Rect>("Rect",
+        "origin", &math::Rect::origin,
+        "size", &math::Rect::size
+    );
+
+    math.new_usertype<math::Color4f>("Color4f",
+        "r", &math::Color4f::r,
+        "g", &math::Color4f::g,
+        "b", &math::Color4f::b,
+        "a", &math::Color4f::a
+    );
+}
+
 void initialize() {
     log_info("Initializing lua");
 
@@ -289,6 +343,8 @@ void initialize() {
     init_engine_module(L);
     init_game_module(L);
     init_foundation_module(L);
+    init_glm_module(L);
+    init_math_module(L);
 
     int load_status = luaL_loadfile(L, "scripts/main.lua");
     if (load_status) {

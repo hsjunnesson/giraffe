@@ -1,11 +1,24 @@
+local dbg = require("scripts/debugger")
+local class = require("scripts/middleclass")
+
+local Food = class("Food")
+function Food:initialize()
+    self.sprite_id = 0
+    self.position = Glm.vec2.new(0, 0)
+end
+
 local game_state = {
     giraffes = {},
     obstacles = {},
-    food = {},
+    food = Food:new(),
     lion = {},
     debug_draw = false,
     debug_avoidance = false,
 }
+
+local spawn_giraffes = function(engine, game, num_giraffes)
+    -- TODO: Implement
+end
 
 function on_enter(engine, game)
 end
@@ -40,6 +53,25 @@ function on_input(engine, game, input_command)
             if pressed then
                 game_state.debug_avoidance = not game_state.debug_avoidance
             end
+        elseif action_hash == Game.ActionHash.ADD_ONE then
+            if pressed or repeated then
+                spawn_giraffes(engine, game, 1)
+            end
+        elseif action_hash == Game.ActionHash.ADD_FIVE then
+            if pressed or repeated then
+                spawn_giraffes(engine, game, 5)
+            end
+        elseif action_hash == Game.ActionHash.ADD_TEN then
+            if pressed or repeated then
+                spawn_giraffes(engine, game, 10)
+            end
+        end
+    elseif input_command.input_type == Engine.InputType.Mouse then
+        if input_command.mouse_state.mouse_left_state == Engine.TriggerState.Pressed then
+            local x = input_command.mouse_state.mouse_position.x
+            local y = engine.window_rect.size.y - input_command.mouse_state.mouse_position.y
+            game_state.food.position = Glm.vec2.new(x, y)
+            print(game_state.food.position)
         end
     end
 end
