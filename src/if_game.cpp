@@ -7,6 +7,7 @@
 #include "memory.h"
 #include "hash.h"
 #include "util.h"
+#include "rnd.h"
 
 #include <engine/sprites.h>
 #include <engine/engine.h>
@@ -15,6 +16,10 @@
 #include <engine/action_binds.h>
 #include <glm/glm.hpp>
 #include <engine/math.inl>
+#include <engine/atlas.h>
+#include <engine/color.inl>
+
+#include <inttypes.h>
 
 extern "C" {
 #include <lauxlib.h>
@@ -113,6 +118,34 @@ inline void fun(const char *function_name, Args&&... args) {
     }
 }
 
+void init_utilities(lua_State *L) {
+    sol::state_view lua(L);
+    
+    // Wrap uint64_t identifiers for Lua 5.1 that doesn't support 64 bit numbers
+    lua.new_usertype<Identifier>("Identifier",
+        "valid", &Identifier::valid,
+        sol::meta_function::equal_to, [](sol::object lhs_obj, sol::object rhs_obj) {
+            if (lhs_obj.is<Identifier>() && rhs_obj.is<Identifier>()) {
+                const Identifier &lhs = lhs_obj.as<Identifier>();
+                const Identifier &rhs = rhs_obj.as<Identifier>();
+                return lhs.value == rhs.value;
+            } else {
+                return false;
+            }
+        },
+        sol::meta_function::to_string, [L](const Identifier &identifier) {
+            TempAllocator64 ta;
+            Buffer ss(ta);
+            printf(ss, "identifier %llu", identifier.value);
+            return sol::make_object(L, c_str(ss));
+        }
+    );
+
+    lua.new_usertype<rnd_pcg_t>("rnd_pcg_t");
+    lua["rnd_pcg_nextf"] = rnd_pcg_nextf;
+    lua["rnd_pcg_seed"] = rnd_pcg_seed;
+}
+
 // Create the Engine module and export all functions, types, and enums that's used in this game.
 void init_engine_module(lua_State *L) {
     sol::state_view lua(L);
@@ -123,6 +156,73 @@ void init_engine_module(lua_State *L) {
         engine.new_usertype<engine::Engine>("Engine",
             "window_rect", &engine::Engine::window_rect
         );
+    }
+
+    // sprites.h
+    {
+        engine.new_usertype<engine::Sprite>("Sprite",
+            "identifier", [](const engine::Sprite &sprite) {
+                return Identifier(sprite.id);
+            },
+            "atlas_frame", &engine::Sprite::atlas_frame
+        );
+
+        engine.new_usertype<engine::Sprites>("Sprites",
+            "atlas", &engine::Sprites::atlas
+        );
+
+        engine["add_sprite"] = engine::add_sprite;
+        engine["remove_sprite"] = engine::add_sprite;
+        engine["get_sprite"] = [](const engine::Sprites &sprites, const Identifier identifier) {
+            return engine::get_sprite(sprites, identifier.value);
+        };
+        engine["transform_sprite"] = [](engine::Sprites &sprites, const Identifier identifier, const math::Matrix4f transform) {
+            engine::transform_sprite(sprites, identifier.value, transform);
+        };
+        engine["color_sprite"] = [](engine::Sprites &sprites, const Identifier identifier, const math::Color4f color) {
+            engine::color_sprite(sprites, identifier.value, color);
+        };
+        engine["update_sprites"] = engine::update_sprites;
+        engine["commit_sprites"] = engine::commit_sprites;
+        engine["render_sprites"] = engine::render_sprites;
+    }
+
+    // color.inl
+    {
+        sol::table color = engine["Color"].get_or_create<sol::table>();
+        color["black"] = engine::color::black;
+        color["white"] = engine::color::white;
+        color["red"] = engine::color::red;
+        color["green"] = engine::color::green;
+        color["blue"] = engine::color::blue;
+
+        sol::table pico8 = color["Pico8"].get_or_create<sol::table>();
+        pico8["black"] = engine::color::pico8::black;
+        pico8["dark_blue"] = engine::color::pico8::dark_blue;
+        pico8["dark_purple"] = engine::color::pico8::dark_purple;
+        pico8["dark_green"] = engine::color::pico8::dark_green;
+        pico8["brown"] = engine::color::pico8::brown;
+        pico8["dark_gray"] = engine::color::pico8::dark_gray;
+        pico8["light_gray"] = engine::color::pico8::light_gray;
+        pico8["white"] = engine::color::pico8::white;
+        pico8["red"] = engine::color::pico8::red;
+        pico8["orange"] = engine::color::pico8::orange;
+        pico8["yellow"] = engine::color::pico8::yellow;
+        pico8["green"] = engine::color::pico8::green;
+        pico8["blue"] = engine::color::pico8::blue;
+        pico8["indigo"] = engine::color::pico8::indigo;
+        pico8["pink"] = engine::color::pico8::pink;
+        pico8["peach"] = engine::color::pico8::peach;
+    }
+
+    // atlas.h
+    {
+        engine.new_usertype<engine::AtlasFrame>("AtlasFrame",
+            "pivot", &engine::AtlasFrame::pivot,
+            "rect", &engine::AtlasFrame::rect
+        );
+
+        engine["atlas_frame"] = engine::atlas_frame;
     }
 
     // input.h
@@ -309,6 +409,12 @@ void init_math_module(lua_State *L) {
         "b", &math::Color4f::b,
         "a", &math::Color4f::a
     );
+
+    math.new_usertype<math::Matrix4f>("Matrix4f",
+        sol::constructors<math::Matrix4f(), math::Matrix4f(const float *)>(),
+        "m", &math::Matrix4f::m,
+        "identity", &math::Matrix4f::identity
+    );
 }
 
 void initialize() {
@@ -316,30 +422,13 @@ void initialize() {
 
     L = luaL_newstate();
     luaopen_base(L);
+    luaopen_os(L);
     luaL_openlibs(L);
 
     lua_pushcfunction(L, my_print);
     lua_setglobal(L, "print");
 
-    // Wrap uint64_t identifiers for Lua 5.1 that doesn't support 64 bit numbers
-    {
-        sol::state_view lua(L);
-
-        sol::usertype<Identifier> identifier_type = lua.new_usertype<Identifier>("Identifier",
-            "valid", &Identifier::valid
-        );
-
-        identifier_type[sol::meta_function::equal_to] = [](sol::object lhs_obj, sol::object rhs_obj) {
-            if (lhs_obj.is<Identifier>() && rhs_obj.is<Identifier>()) {
-                const Identifier &lhs = lhs_obj.as<Identifier>();
-                const Identifier &rhs = rhs_obj.as<Identifier>();
-                return lhs.value == rhs.value;
-            } else {
-                return false;
-            }
-        };
-    }
-
+    init_utilities(L);
     init_engine_module(L);
     init_game_module(L);
     init_foundation_module(L);

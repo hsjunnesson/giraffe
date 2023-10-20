@@ -13,6 +13,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(LIVE_PP False)
 set(SUPERLUMINAL False)
+
 # Compile for Lua 5.1
 set(HAS_LUA True)
 
@@ -177,6 +178,7 @@ if (MSVC)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
     set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
     target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE=1)
+    target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
 
     if (HAS_LUA)
         source_group("lua" FILES ${SRC_LUA})

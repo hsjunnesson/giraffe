@@ -1,11 +1,49 @@
 local dbg = require("scripts/debugger")
 local class = require("scripts/middleclass")
 
+local Mob = class("Mob")
+function Mob:initialize()
+    self.mass = 100
+    self.position = Glm.vec2.new(0, 0)
+    self.velocity = Glm.vec2.new(0, 0)
+    self.steering_direction = Glm.vec2.new(0, 0)
+    self.steering_target = Glm.vec2.new(0, 0)
+    self.max_force = 30
+    self.max_speed = 30
+    self.orientation = 0
+    self.radius = 10
+end
+
+local Giraffe = class("Giraffe")
+function Giraffe:initialize()
+    self.sprite_id = 0
+    self.mob = Mob:new()
+    self.dead = false
+end
+
+local Lion = class("Lion")
+function Lion:initialize()
+    self.sprite_id = 0
+    self.mob = Mob:new()
+    self.locked_giraffe = nil
+    self.energy = 0
+    self.max_energy = 10
+end
+
 local Food = class("Food")
 function Food:initialize()
     self.sprite_id = 0
     self.position = Glm.vec2.new(0, 0)
 end
+
+local Obstacle = class("Obstacle")
+function Obstacle:initialize()
+    self.position = Glm.vec2.new(0, 0)
+    self.radius = 100
+    self.color = Math.Color4f.new(1, 1, 1, 1)
+end
+
+local RANDOM_DEVICE = rnd_pcg_t.new()
 
 local game_state = {
     giraffes = {},
@@ -17,10 +55,37 @@ local game_state = {
 }
 
 local spawn_giraffes = function(engine, game, num_giraffes)
-    -- TODO: Implement
+    for _ = 1, num_giraffes do
+        local giraffe = Giraffe:new()
+        giraffe.mob.mass = 100
+        giraffe.mob.max_force = 1000
+        giraffe.mob.max_speed = 300
+        giraffe.mob.radius = 20
+        giraffe.mob.position = Glm.vec2.new(
+            50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.x - 100),
+            50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.y - 100)
+        )
+
+        local sprite = Engine.add_sprite(game.sprites, "giraffe", Engine.Color.Pico8.orange)
+        giraffe.sprite_id = sprite:identifier()
+        table.insert(game_state.giraffes, giraffe)
+    end
 end
 
 function on_enter(engine, game)
+    local time = os.time()
+    rnd_pcg_seed(RANDOM_DEVICE, time)
+
+    -- Spawn lake
+
+    -- Spawn trees
+
+    -- Spawn giraffes
+    spawn_giraffes(engine, game, 3)
+
+    -- Spawn food
+
+    -- Spawn lion
 end
 
 function on_leave(engine, game)
@@ -71,15 +136,36 @@ function on_input(engine, game, input_command)
             local x = input_command.mouse_state.mouse_position.x
             local y = engine.window_rect.size.y - input_command.mouse_state.mouse_position.y
             game_state.food.position = Glm.vec2.new(x, y)
-            print(game_state.food.position)
         end
     end
 end
 
-function update()
+
+local update_mod = function(mob, game, dt)
 end
 
-function render()
+local arrival_behavior = function(mob, target_position, speed_ramp_distance)
+end
+
+local avoidance_behavior = function(mob, engine, game)
+end
+
+local update_giraffe = function(giraffe, engine, game, dt)
+end
+
+local update_lion = function(lion, engine, game, t, dt)
+end
+
+function update(engine, game, t, dt)
+    -- update giraffes
+    -- update lion
+
+    Engine.update_sprites(game.sprites, t, dt)
+    Engine.commit_sprites(game.sprites)
+end
+
+function render(engine, game)
+    Engine.render_sprites(engine, game.sprites)
 end
 
 function render_imgui()

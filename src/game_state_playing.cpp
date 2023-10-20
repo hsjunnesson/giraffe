@@ -39,10 +39,6 @@ using namespace math;
 using namespace foundation;
 
 void spawn_giraffes(engine::Engine &engine, Game &game, int num_giraffes) {
-    // Spawn giraffes outside obstacles
-    const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
-    assert(giraffe_frame);
-
     for (int i = 0; i < num_giraffes; ++i) {
         Giraffe giraffe;
         giraffe.mob.mass = 100.0f;
@@ -60,9 +56,6 @@ void spawn_giraffes(engine::Engine &engine, Game &game, int num_giraffes) {
 }
 
 void game_state_playing_enter(engine::Engine &engine, Game &game) {
-    (void)engine;
-    (void)game;
-
     time_t seconds;
     time(&seconds);
     rnd_pcg_seed(&RANDOM_DEVICE, (RND_U32)seconds);
@@ -405,7 +398,7 @@ void update_giraffe(Giraffe &giraffe, engine::Engine &engine, Game &game, float 
 
 void update_lion(Lion &lion, engine::Engine &engine, Game &game, float t, float dt) {
     if (!lion.locked_giraffe) {
-        if (lion.energy >= lion.max_enery) {
+        if (lion.energy >= lion.max_energy) {
             Giraffe *found_giraffe = nullptr;
             float distance = FLT_MAX;
             for (Giraffe *giraffe = array::begin(game.game_state.giraffes); giraffe != array::end(game.game_state.giraffes); ++giraffe) {
@@ -420,7 +413,7 @@ void update_lion(Lion &lion, engine::Engine &engine, Game &game, float t, float 
 
             if (found_giraffe) {
                 lion.locked_giraffe = found_giraffe;
-                lion.energy = lion.max_enery;
+                lion.energy = lion.max_energy;
             }
         } else {
             lion.energy += dt * 2.0f;
@@ -489,8 +482,6 @@ void update_lion(Lion &lion, engine::Engine &engine, Game &game, float t, float 
 }
 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
-    (void)engine;
-
     for (Giraffe *giraffe = array::begin(game.game_state.giraffes); giraffe != array::end(game.game_state.giraffes); ++giraffe) {
         update_giraffe(*giraffe, engine, game, dt);
     }

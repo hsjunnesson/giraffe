@@ -75,7 +75,7 @@ struct Lion {
     Mob mob;
     Giraffe *locked_giraffe = nullptr;
     float energy = 0.0f;
-    float max_enery = 10.0f;
+    float max_energy = 10.0f;
 };
 
 struct Obstacle {
