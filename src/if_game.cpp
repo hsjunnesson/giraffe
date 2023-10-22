@@ -15,6 +15,9 @@
 #include <engine/input.h>
 #include <engine/action_binds.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/norm.hpp>
+#include <glm/gtx/transform.hpp>
 #include <engine/math.inl>
 #include <engine/atlas.h>
 #include <engine/color.inl>
@@ -382,6 +385,35 @@ void init_glm_module(lua_State *L) {
             return sol::make_object(L, c_str(ss));
         }
     );
+
+    glm.new_usertype<glm::vec3>("vec3",
+        sol::constructors<glm::vec3(), glm::vec3(float, float, float)>(),
+        "x", &glm::vec3::x,
+        "y", &glm::vec3::y,
+        "z", &glm::vec3::z,
+        sol::meta_function::to_string, [L](const glm::vec3 &v) {
+            TempAllocator64 ta;
+            Buffer ss(ta);
+            printf(ss, "vec3(%f, %f, %f)", v.x, v.y, v.z);
+            return sol::make_object(L, c_str(ss));
+        }
+    );
+
+    glm.new_usertype<glm::mat4>("mat4",
+        sol::constructors<glm::mat4(), glm::mat4(float)>(),
+        sol::meta_function::to_string, [L](const glm::vec3 &v) {
+            TempAllocator64 ta;
+            Buffer ss(ta);
+            printf(ss, "mat4");
+            return sol::make_object(L, c_str(ss));
+        }
+    );
+
+    glm["to_Matrix4f"] = [](const glm::mat4 &mat) -> math::Matrix4f {
+        return math::Matrix4f(glm::value_ptr(mat));
+    };
+    glm["translate"] = static_cast<glm::mat4(*)(const glm::mat4&, const glm::vec3&)>(glm::translate);
+    glm["scale"] = static_cast<glm::mat4(*)(const glm::mat4&, const glm::vec3&)>(glm::scale);
 }
 
 void init_math_module(lua_State *L) {
@@ -404,6 +436,12 @@ void init_math_module(lua_State *L) {
     );
 
     math.new_usertype<math::Color4f>("Color4f",
+        sol::initializers([](math::Color4f& obj, float r, float g, float b, float a) {
+            obj.r = r;
+            obj.g = g;
+            obj.b = b;
+            obj.a = a;
+        }),
         "r", &math::Color4f::r,
         "g", &math::Color4f::g,
         "b", &math::Color4f::b,

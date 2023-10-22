@@ -44,12 +44,15 @@ function Obstacle:initialize()
 end
 
 local RANDOM_DEVICE = rnd_pcg_t.new()
+local LION_Z_LAYER = -1
+local GIRAFFE_Z_LAYER = -2
+local FOOD_Z_LAYER = -3
 
 local game_state = {
     giraffes = {},
     obstacles = {},
     food = Food:new(),
-    lion = {},
+    lion = Lion:new(),
     debug_draw = false,
     debug_avoidance = false,
 }
@@ -77,15 +80,60 @@ function on_enter(engine, game)
     rnd_pcg_seed(RANDOM_DEVICE, time)
 
     -- Spawn lake
+    do
+        local lake_obstacle = Obstacle:new()
+        lake_obstacle.position = Glm.vec2.new(
+            (engine.window_rect.size.x / 2) + 200 * rnd_pcg_nextf(RANDOM_DEVICE) - 100,
+            (engine.window_rect.size.y / 2) + 200 * rnd_pcg_nextf(RANDOM_DEVICE) - 100
+        )
+        lake_obstacle.color = Engine.Color.Pico8.blue
+        lake_obstacle.radius = 100 + rnd_pcg_nextf(RANDOM_DEVICE) * 100
+        table.insert(game_state.obstacles, lake_obstacle)
+    end
 
     -- Spawn trees
+    for _ = 1, 10 do
+        local obstacle = Obstacle:new()
+        obstacle.position = Glm.vec2.new(
+            10 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.x - 20),
+            10 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.y - 20)
+        )
+        obstacle.color = Engine.Color.Pico8.light_gray
+        obstacle.radius = 20
+        table.insert(game_state.obstacles, obstacle)
+    end
 
     -- Spawn giraffes
     spawn_giraffes(engine, game, 3)
 
     -- Spawn food
+    do
+        local sprite = Engine.add_sprite(game.sprites, "food", Engine.Color.Pico8.green)
+        game_state.food.sprite_id = sprite:identifier()
+        game_state.food.position = Glm.vec2.new(0.25 * engine.window_rect.size.x, 0.25 * engine.window_rect.size.y)
+
+        local transform = Glm.mat4.new(1.0)
+        transform = Glm.translate(transform, Glm.vec3.new(
+            math.floor(game_state.food.position.x - sprite.atlas_frame.rect.size.x * sprite.atlas_frame.pivot.x),
+            math.floor(game_state.food.position.y - sprite.atlas_frame.rect.size.y * (1.0 - sprite.atlas_frame.pivot.y)),
+            FOOD_Z_LAYER
+        ))
+        transform = Glm.scale(transform, Glm.vec3.new(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
+
+        local matrix = Glm.to_Matrix4f(transform)
+        Engine.transform_sprite(game.sprites, game_state.food.sprite_id, matrix)
+    end
 
     -- Spawn lion
+    do
+        local sprite = Engine.add_sprite(game.sprites, "lion", Engine.Color.Pico8.yellow)
+        game_state.lion.sprite_id = sprite:identifier()
+        game_state.lion.mob.position = Glm.vec2.new(engine.window_rect.size.x * 0.75, engine.window_rect.size.y * 0.75)
+        game_state.lion.mob.mass = 25
+        game_state.lion.mob.max_force = 1000
+        game_state.lion.mob.max_speed = 400
+        game_state.lion.mob.radius = 20
+    end
 end
 
 function on_leave(engine, game)
@@ -97,7 +145,6 @@ function on_input(engine, game, input_command)
         local repeated = input_command.key_state.trigger_state == Engine.TriggerState.Repeated
 
         local bind_action_key = Engine.action_key_for_input_command(input_command)
-
         if not bind_action_key:valid() then
             return
         end
@@ -136,12 +183,24 @@ function on_input(engine, game, input_command)
             local x = input_command.mouse_state.mouse_position.x
             local y = engine.window_rect.size.y - input_command.mouse_state.mouse_position.y
             game_state.food.position = Glm.vec2.new(x, y)
+
+            local sprite = Engine.get_sprite(game.sprites, game_state.food.sprite_id)
+            local transform = Glm.mat4.new(1.0)
+            transform = Glm.translate(transform, Glm.vec3.new(
+                math.floor(game_state.food.position.x - sprite.atlas_frame.rect.size.x * sprite.atlas_frame.pivot.x),
+                math.floor(game_state.food.position.y - sprite.atlas_frame.rect.size.y * (1.0 - sprite.atlas_frame.pivot.y)),
+                FOOD_Z_LAYER
+            ))
+            transform = Glm.scale(transform, Glm.vec3.new(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
+
+            local matrix = Glm.to_Matrix4f(transform)
+            Engine.transform_sprite(game.sprites, game_state.food.sprite_id, matrix)
         end
     end
 end
 
 
-local update_mod = function(mob, game, dt)
+local update_mob = function(mob, game, dt)
 end
 
 local arrival_behavior = function(mob, target_position, speed_ramp_distance)
@@ -151,14 +210,68 @@ local avoidance_behavior = function(mob, engine, game)
 end
 
 local update_giraffe = function(giraffe, engine, game, dt)
+    -- TODO: Implement
+
+
+    local giraffe_frame = Engine.atlas_frame(game.sprites.atlas, "giraffe")
+
+    local transform = Glm.mat4.new(1.0)
+    local flip_x = giraffe.mob.velocity.x <= 0.0
+    local flip_y = giraffe.dead == true
+
+    local x_offset = giraffe_frame.rect.size.x * giraffe_frame.pivot.x
+    local y_offset = giraffe_frame.rect.size.y * (1.0 - giraffe_frame.pivot.y)
+
+    if flip_x then
+        x_offset = x_offset * -1.0
+    end
+
+    if flip_y then
+        y_offset = y_offset * -1.0
+    end
+
+    transform = Glm.translate(transform, Glm.vec3.new(
+        math.floor(giraffe.mob.position.x - x_offset),
+        math.floor(giraffe.mob.position.y - y_offset),
+        GIRAFFE_Z_LAYER
+    ))
+    transform = Glm.scale(transform, Glm.vec3.new((flip_x and -1.0 or 1.0) * giraffe_frame.rect.size.x, (flip_y and -1.0 or 1.0) * giraffe_frame.rect.size.y, 1.0))
+
+    local matrix = Glm.to_Matrix4f(transform)
+    Engine.transform_sprite(game.sprites, giraffe.sprite_id, matrix)
 end
 
 local update_lion = function(lion, engine, game, t, dt)
+    -- TODO: Implement behavior
+
+    local lion_frame = Engine.atlas_frame(game.sprites.atlas, "lion")
+
+    local transform = Glm.mat4.new(1.0)
+    local flip = lion.locked_giraffe and lion.locked_giraffe.mob_position.x < lion.mob.position.x
+
+    local x_offset = lion_frame.rect.size.x * lion_frame.pivot.x
+
+    if flip then
+        x_offset = x_offset * -1.0
+    end
+
+    transform = Glm.translate(transform, Glm.vec3.new(
+        math.floor(lion.mob.position.x - x_offset),
+        math.floor(lion.mob.position.y - lion_frame.rect.size.y * (1.0 - lion_frame.pivot.y)),
+        LION_Z_LAYER
+    ))
+    transform = Glm.scale(transform, Glm.vec3.new((flip and -1.0 or 1.0) * lion_frame.rect.size.x, lion_frame.rect.size.y, 1.0))
+
+    local matrix = Glm.to_Matrix4f(transform)
+    Engine.transform_sprite(game.sprites, lion.sprite_id, matrix)
 end
 
 function update(engine, game, t, dt)
-    -- update giraffes
-    -- update lion
+    for _, giraffe in ipairs(game_state.giraffes) do
+        update_giraffe(giraffe, engine, game, dt)
+    end
+
+    update_lion(game_state.lion, engine, game, t, dt)
 
     Engine.update_sprites(game.sprites, t, dt)
     Engine.commit_sprites(game.sprites)
