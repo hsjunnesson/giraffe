@@ -199,15 +199,6 @@ function on_input(engine, game, input_command)
     end
 end
 
-local truncate = function(vector, max_length)
-    local length = Glm.length(vector)
-    if length > max_length and length > 0 then
-        return vector / length * max_length
-    else
-        return vector
-    end
-end
-
 local update_mob = function(mob, game, dt)
     local drag = 1
 
@@ -221,11 +212,11 @@ local update_mob = function(mob, game, dt)
     end
 
     local drag_force = -drag * mob.velocity
-    local steering_force = truncate(mob.steering_direction, mob.max_force) + drag_force;
-    local acceleration = steering_force / mob.mass;
+    local steering_force = truncate(mob.steering_direction, mob.max_force) + drag_force
+    local acceleration = steering_force / mob.mass
 
-    mob.velocity = truncate(mob.velocity + acceleration, mob.max_speed);
-    mob.position = mob.position + mob.velocity * dt;
+    mob.velocity = truncate(mob.velocity + acceleration, mob.max_speed)
+    mob.position = mob.position + mob.velocity * dt
 
     if Glm.length(mob.velocity) > 0.001 then
         mob.orientation = math.atan2(-mob.velocity.x, mob.velocity.y)
@@ -233,13 +224,160 @@ local update_mob = function(mob, game, dt)
 end
 
 local arrival_behavior = function(mob, target_position, speed_ramp_distance)
+    local target_offset = target_position - mob.position
+    local distance = Glm.length(target_offset)
+    local ramped_speed = mob.max_speed * (distance / speed_ramp_distance)
+    local clipped_speed = math.min(ramped_speed, mob.max_speed)
+    local desired_velocity = (clipped_speed / distance) * target_offset
+    return desired_velocity - mob.velocity
 end
 
 local avoidance_behavior = function(mob, engine, game)
+    local look_ahead_distance = 200
+
+    local origin = mob.position
+    local target_distance = Glm.length(mob.steering_target - origin)
+    local forward = Glm.normalize(mob.steering_target - origin)
+
+    local right_vector = Glm.vec2.new(forward.y, -forward.x)
+    local left_vector = Glm.vec2.new(-forward.y, forward.x)
+
+    local left_start = origin + left_vector * mob.radius
+    local right_start = origin + right_vector * mob.radius
+
+    local left_intersects = false
+    local left_intersection = nil
+    local left_intersection_distance = 1000000 -- sufficiently large enought
+
+    local right_intersects = false
+    local right_intersection = nil
+    local right_intersection_distance = 1000000 -- sufficiently large enought
+
+    -- check against each obstacle
+    for _, obstacle in ipairs(game_state.obstacles) do
+        local did_li, li = Glm.ray_circle_intersection(left_start, forward, obstacle.position, obstacle.radius, li);
+        if did_li then
+            local distance = Glm.length(li - left_start)
+            if distance <= look_ahead_distance and distance < left_intersection_distance then
+                left_intersects = true
+                left_intersection = li
+                left_intersection_distance = distance
+            end
+        end
+
+        local did_ri, ri = Glm.ray_circle_intersection(right_start, forward, obstacle.position, obstacle.radius, ri)
+        if did_ri then
+            local distance = Glm.length(ri - right_start)
+            if distance <= look_ahead_distance and distance < right_intersection_distance then
+                right_intersects = true
+                right_intersection = li
+                right_intersection_distance = distance
+            end
+        end
+    end
+
+    local avoidance_force = Glm.vec2.new(0, 0)
+
+    if right_intersects or left_intersects then
+        if target_distance <= left_intersection_distance and target_distance <= right_intersection_distance then
+            return Glm.vec2.new(0, 0)
+        end
+
+        if left_intersection_distance < right_intersection_distance then
+            local ratio = left_intersection_distance / look_ahead_distance
+            avoidance_force = right_vector * (1.0 - ratio) * 50
+        else
+            local ratio = right_intersection_distance / look_ahead_distance
+            avoidance_force = left_vector * (1.0 - ratio) * 50
+        end
+    end
+
+    return avoidance_force
 end
 
 local update_giraffe = function(giraffe, engine, game, dt)
-    -- TODO: Implement
+    local arrival_force = Glm.vec2.new(0, 0)
+    local arrival_weight = 1
+
+    local flee_force = Glm.vec2.new(0, 0)
+    local flee_weight = 1
+
+    local separation_force = Glm.vec2.new(0, 0)
+    local separation_weight = 10
+
+    local avoidance_force = Glm.vec2.new(0, 0)
+    local avoidance_weight = 10
+
+    if not giraffe.dead then
+        local is_hunted = false
+
+        local distance = Glm.length(game_state.lion.mob.position - giraffe.mob.position)
+        if distance <= 300 then
+            is_hunted = true
+        end
+
+        -- flee
+        if is_hunted then
+            local flee_direction = giraffe.mob.position - game_state.lion.mob.position
+            local steering_target = giraffe.mob.position + flee_direction
+            giraffe.mob.steering_target = steering_target
+
+            local desired_velocity = Glm.normalize(flee_direction) * giraffe.mob.max_speed
+            flee_force = desired_velocity - giraffe.mob.velocity
+
+            local boundary_avoidance_force = Glm.vec2.new(0, 0)
+            local buffer_distance = 100
+
+            if giraffe.mob.position.x <= buffer_distance then
+                boundary_avoidance_force.x = buffer_distance - giraffe.mob.position.x
+            elseif giraffe.mob.position.x >= engine.window_rect.size.x - buffer_distance then
+                boundary_avoidance_force.x = engine.window_rect.size.x - buffer_distance - giraffe.mob.position.x
+            end
+
+            if giraffe.mob.position.y <= buffer_distance then
+                boundary_avoidance_force.y = buffer_distance - giraffe.mob.position.y
+            elseif giraffe.mob.position.y >= engine.window_rect.size.y - buffer_distance then
+                boundary_avoidance_force.y = engine.window_rect.size.y - buffer_distance - giraffe.mob.position.y
+            end
+
+            boundary_avoidance_force = boundary_avoidance_force * 20
+
+            flee_force = flee_force + boundary_avoidance_force
+            flee_force = flee_force * flee_weight
+        else
+            -- arrival
+            giraffe.mob.steering_target = game_state.food.position
+            arrival_force = arrival_behavior(giraffe.mob, game_state.food.position, 100)
+            arrival_force = arrival_force * arrival_weight
+        end
+
+        -- // separation
+        -- {
+        --     for (Giraffe *other_giraffe = array::begin(game.game_state.giraffes); other_giraffe != array::end(game.game_state.giraffes); ++other_giraffe) {
+        --         if (other_giraffe != &giraffe && !other_giraffe->dead) {
+        --             glm::vec2 offset = other_giraffe->mob.position - giraffe.mob.position;
+        --             const float distance_squared = glm::length2(offset);
+        --             const float near_distance_squared = (giraffe.mob.radius + other_giraffe->mob.radius) * (giraffe.mob.radius + other_giraffe->mob.radius);
+        --             if (distance_squared <= near_distance_squared) {
+        --                 float distance = sqrt(distance_squared);
+        --                 offset /= distance;
+        --                 offset *= (giraffe.mob.radius + other_giraffe->mob.radius);
+        --                 separation_force -= offset;
+        --             }
+        --         }
+        --     }
+
+        --     separation_force *= separation_weight;
+        -- }
+
+        -- avoidance
+        do
+            avoidance_force = avoidance_behavior(giraffe.mob, engine, game)
+            avoidance_force = avoidance_force * avoidance_weight
+        end
+    end
+
+    giraffe.mob.steering_direction = truncate(arrival_force + flee_force + separation_force + avoidance_force, giraffe.mob.max_force)
 
     update_mob(giraffe.mob, game, dt)
 

@@ -429,6 +429,37 @@ void init_glm_module(lua_State *L) {
         }
     );
 
+    // from util.h
+    glm["ray_circle_intersection"] = [L](const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 circle_center, float circle_radius) {
+        glm::vec2 out;
+        bool result = ray_circle_intersection(ray_origin, ray_direction, circle_center, circle_radius, out);
+        if (result) {
+            lua_pushboolean(L, true);
+            sol::stack::push(L, sol::make_object(L, out));
+            return 2;
+        } else {
+            lua_pushboolean(L, false);
+            return 1;
+        }
+    };
+    glm["ray_line_intersection"] = [L](const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 p1, const glm::vec2 p2) {
+        glm::vec2 out;
+        bool result = ray_line_intersection(ray_origin, ray_direction, p1, p2, out);
+        if (result) {
+            lua_pushboolean(L, true);
+            sol::stack::push(L, sol::make_object(L, out));
+            return 2;
+        } else {
+            lua_pushboolean(L, false);
+            return 1;
+        }
+    };
+    glm["circles_overlap"] = circles_overlap;
+    glm["truncate"] = truncate;
+
+    glm["normalize"] = [](const glm::vec2& v) {
+        return glm::normalize(v);
+    };
     glm["length"] = [](const glm::vec2& v) {
         return glm::length(v);
     };
