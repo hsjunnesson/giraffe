@@ -12,7 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(LIVE_PP False)
-set(SUPERLUMINAL False)
+set(SUPERLUMINAL True)
 
 # Compile for Lua 5.1
 set(HAS_LUA True)
@@ -27,7 +27,9 @@ endif()
 
 # Find locally installed dependencies. Tip: Use VCPKG for these.
 
-find_package(sol2 CONFIG REQUIRED)
+if (HAS_LUA OR HAS_LUAJIT)
+    find_package(sol2 CONFIG REQUIRED)
+endif()
 
 if (SUPERLUMINAL)
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Program Files/Superluminal/Performance/API")
@@ -61,8 +63,6 @@ set(SRC_giraffe
     "src/game_state_playing.cpp"
     "src/rnd.h"
     "src/util.h"
-    "src/if_game.h"
-    "src/if_game.cpp"
 )
 
 if (HAS_LUA OR HAS_LUAJIT)
@@ -162,7 +162,10 @@ endif()
 # Linked libraries
 
 target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)
-target_link_libraries(${PROJECT_NAME} PRIVATE sol2)
+
+if (HAS_LUA OR HAS_LUAJIT)
+    target_link_libraries(${PROJECT_NAME} PRIVATE sol2)
+endif()
 
 if (SUPERLUMINAL)
     target_link_libraries(${PROJECT_NAME} PRIVATE SuperluminalAPI)
