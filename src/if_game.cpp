@@ -383,6 +383,26 @@ void init_glm_module(lua_State *L) {
             Buffer ss(ta);
             printf(ss, "vec2(%f, %f)", v.x, v.y);
             return sol::make_object(L, c_str(ss));
+        },
+        sol::meta_function::addition, [](const glm::vec2& lhs, const glm::vec2& rhs) {
+            return lhs + rhs;
+        },
+        sol::meta_function::subtraction, [](const glm::vec2& lhs, const glm::vec2& rhs) {
+            return lhs - rhs;
+        },
+        sol::meta_function::multiplication, sol::overload(
+            [](const glm::vec2& lhs, float scalar) {
+                return lhs * scalar;
+            },
+            [](float scalar, const glm::vec2& rhs) {
+                return scalar * rhs;
+            },
+            [](const glm::vec2& lhs, const glm::vec2& rhs) {
+                return lhs * rhs;  // element-wise multiplication
+            }
+        ),
+        sol::meta_function::division, [](const glm::vec2& lhs, float scalar) {
+            return lhs / scalar;
         }
     );
 
@@ -409,6 +429,9 @@ void init_glm_module(lua_State *L) {
         }
     );
 
+    glm["length"] = [](const glm::vec2& v) {
+        return glm::length(v);
+    };
     glm["to_Matrix4f"] = [](const glm::mat4 &mat) -> math::Matrix4f {
         return math::Matrix4f(glm::value_ptr(mat));
     };

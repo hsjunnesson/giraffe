@@ -199,8 +199,37 @@ function on_input(engine, game, input_command)
     end
 end
 
+local truncate = function(vector, max_length)
+    local length = Glm.length(vector)
+    if length > max_length and length > 0 then
+        return vector / length * max_length
+    else
+        return vector
+    end
+end
 
 local update_mob = function(mob, game, dt)
+    local drag = 1
+
+    -- lake drags you down
+    for _, obstacle in ipairs(game_state.obstacles) do
+        local length = Glm.length(obstacle.position - mob.position)
+        if length <= obstacle.radius then
+            drag = 10
+            break
+        end
+    end
+
+    local drag_force = -drag * mob.velocity
+    local steering_force = truncate(mob.steering_direction, mob.max_force) + drag_force;
+    local acceleration = steering_force / mob.mass;
+
+    mob.velocity = truncate(mob.velocity + acceleration, mob.max_speed);
+    mob.position = mob.position + mob.velocity * dt;
+
+    if Glm.length(mob.velocity) > 0.001 then
+        mob.orientation = math.atan2(-mob.velocity.x, mob.velocity.y)
+    end
 end
 
 local arrival_behavior = function(mob, target_position, speed_ramp_distance)
@@ -212,6 +241,7 @@ end
 local update_giraffe = function(giraffe, engine, game, dt)
     -- TODO: Implement
 
+    update_mob(giraffe.mob, game, dt)
 
     local giraffe_frame = Engine.atlas_frame(game.sprites.atlas, "giraffe")
 
