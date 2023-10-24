@@ -66,8 +66,6 @@ Game::~Game() {
 }
 
 void update(engine::Engine &engine, void *game_object, float t, float dt) {
-    ZoneScoped;
-
     if (!game_object) {
         return;
     }
@@ -94,8 +92,6 @@ void update(engine::Engine &engine, void *game_object, float t, float dt) {
 }
 
 void on_input(engine::Engine &engine, void *game_object, engine::InputCommand &input_command) {
-    ZoneScoped;
-
     if (!game_object) {
         return;
     }
@@ -115,8 +111,6 @@ void on_input(engine::Engine &engine, void *game_object, engine::InputCommand &i
 }
 
 void render(engine::Engine &engine, void *game_object) {
-    ZoneScoped;
-
     Game *game = static_cast<Game *>(game_object);
 
     switch (game->app_state) {
@@ -131,8 +125,6 @@ void render(engine::Engine &engine, void *game_object) {
 }
 
 void render_imgui(engine::Engine &engine, void *game_object) {
-    ZoneScoped;
-    
     Game *game = static_cast<Game *>(game_object);
 
     switch (game->app_state) {

@@ -17,13 +17,6 @@
 #endif
 #pragma warning(pop)
 
-#if defined(TRACY_ENABLE)
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-
-#include <tracy/Tracy.hpp>
-#endif
-
 #include "game.h"
 
 int main(int argc, char *argv[]) {

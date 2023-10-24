@@ -12,7 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(LIVE_PP False)
-set(TRACY True)
+set(SUPERLUMINAL True)
 
 # Compile for Lua 5.1
 set(HAS_LUA True)
@@ -22,6 +22,11 @@ set(HAS_LUAJIT False)
 
 if (HAS_LUA AND HAS_LUAJIT)
     message(FATAL_ERROR "Can't compile with both HAS_LUA and HAS_LUAJIT")
+endif()
+
+if (SUPERLUMINAL)
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Program Files/Superluminal/Performance/API")
+    find_package(SuperluminalAPI REQUIRED)
 endif()
 
 
@@ -144,6 +149,10 @@ endif()
 
 # Includes
 
+if (SUPERLUMINAL)
+    include_directories(SYSTEM ${SuperluminalAPI_INCLUDE_DIRS})
+endif()
+
 if (LIVE_PP)
     include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/LivePP/API/x64)
 endif()
@@ -155,6 +164,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)
 
 if (HAS_LUA OR HAS_LUAJIT)
     target_link_libraries(${PROJECT_NAME} PRIVATE sol2)
+endif()
+
+if (SUPERLUMINAL)
+    target_link_libraries(${PROJECT_NAME} PRIVATE SuperluminalAPI)
 endif()
 
 

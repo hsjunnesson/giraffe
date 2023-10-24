@@ -35,10 +35,6 @@ extern "C" {
 #define SOL_ALL_SAFETIES_ON 1
 #include <sol/sol.hpp>
 
-#if defined(TRACY_ENABLE)
-#include <tracy/Tracy.hpp>
-#endif
-
 #if defined(HAS_LUA) || defined(HAS_LUAJIT)
 
 namespace {
@@ -550,7 +546,6 @@ void init_imgui_module(lua_State *L) {
 }
 
 void initialize() {
-    ZoneScoped;
     log_info("Initializing lua");
 
     L = luaL_newstate();
@@ -586,32 +581,26 @@ void initialize() {
 namespace game {
 
 void game_state_playing_enter(engine::Engine &engine, Game &game) {
-    ZoneScoped;
     lua::fun("on_enter", engine, game);
 }
 
 void game_state_playing_leave(engine::Engine &engine, Game &game) {
-    ZoneScoped;
     lua::fun("on_leave", engine, game);
 }
 
 void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::InputCommand &input_command) {
-    ZoneScoped;
     lua::fun("on_input", engine, game, input_command);
 }
 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
-    ZoneScoped;
     lua::fun("update", engine, game, t, dt);
 }
 
 void game_state_playing_render(engine::Engine &engine, Game &game) {
-    ZoneScoped;
     lua::fun("render", engine, game);
 }
 
 void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
-    ZoneScoped;
     lua::fun("render_imgui", engine, game);
 }
 
