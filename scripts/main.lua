@@ -1,4 +1,5 @@
-local dbg = require("scripts/debugger")
+-- local dbg = require("scripts/debugger")
+-- local profile = require("scripts/profile")
 local class = require("scripts/middleclass")
 
 local Mob = class("Mob")
@@ -76,6 +77,10 @@ local spawn_giraffes = function(engine, game, num_giraffes)
 end
 
 function on_enter(engine, game)
+    if profile then
+        profile.start()
+    end
+
     local time = os.time()
     rnd_pcg_seed(RANDOM_DEVICE, time)
 
@@ -137,6 +142,10 @@ function on_enter(engine, game)
 end
 
 function on_leave(engine, game)
+    if profile then
+        profile.stop()
+        print(profile.report(50))
+    end
 end
 
 function on_input(engine, game, input_command)

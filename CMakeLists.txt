@@ -12,7 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(LIVE_PP False)
-set(SUPERLUMINAL True)
+set(TRACY True)
 
 # Compile for Lua 5.1
 set(HAS_LUA True)
@@ -31,11 +31,6 @@ if (HAS_LUA OR HAS_LUAJIT)
     find_package(sol2 CONFIG REQUIRED)
 endif()
 
-if (SUPERLUMINAL)
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Program Files/Superluminal/Performance/API")
-    find_package(SuperluminalAPI REQUIRED)
-endif()
-
 
 # Fetch dependencies from Github
 
@@ -50,8 +45,18 @@ if (NOT bitsquidfoundation_POPULATED)
     FetchContent_MakeAvailable(BitSquidFoundation)
 endif()
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/chocolate")
 
+if (TRACY)
+    FetchContent_Declare (
+        tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+    )
+
+    FetchContent_MakeAvailable(tracy)
+endif()
+
+
+add_subdirectory("${CMAKE_SOURCE_DIR}/chocolate")
 
 
 # Main game source
@@ -150,8 +155,8 @@ endif()
 
 # Includes
 
-if (SUPERLUMINAL)
-    include_directories(SYSTEM ${SuperluminalAPI_INCLUDE_DIRS})
+if (TRACY)
+    include_directories(SYSTEM PUBLIC ${tracy_SOURCE_DIR}/public)
 endif()
 
 if (LIVE_PP)
@@ -167,8 +172,8 @@ if (HAS_LUA OR HAS_LUAJIT)
     target_link_libraries(${PROJECT_NAME} PRIVATE sol2)
 endif()
 
-if (SUPERLUMINAL)
-    target_link_libraries(${PROJECT_NAME} PRIVATE SuperluminalAPI)
+if (TRACY)
+    target_link_libraries(${PROJECT_NAME} PRIVATE TracyClient)
 endif()
 
 
@@ -185,6 +190,10 @@ if (MSVC)
 
     if (HAS_LUA)
         source_group("lua" FILES ${SRC_LUA})
+    endif()
+
+    if (TRACY)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE TRACY_ENABLE=1)
     endif()
 
     if (LIVE_PP)
