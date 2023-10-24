@@ -212,10 +212,10 @@ local update_mob = function(mob, game, dt)
     end
 
     local drag_force = -drag * mob.velocity
-    local steering_force = truncate(mob.steering_direction, mob.max_force) + drag_force
+    local steering_force = Glm.truncate(mob.steering_direction, mob.max_force) + drag_force
     local acceleration = steering_force / mob.mass
 
-    mob.velocity = truncate(mob.velocity + acceleration, mob.max_speed)
+    mob.velocity = Glm.truncate(mob.velocity + acceleration, mob.max_speed)
     mob.position = mob.position + mob.velocity * dt
 
     if Glm.length(mob.velocity) > 0.001 then
@@ -247,11 +247,11 @@ local avoidance_behavior = function(mob, engine, game)
 
     local left_intersects = false
     local left_intersection = nil
-    local left_intersection_distance = 1000000 -- sufficiently large enought
+    local left_intersection_distance = 1000000 -- sufficiently large enough
 
     local right_intersects = false
     local right_intersection = nil
-    local right_intersection_distance = 1000000 -- sufficiently large enought
+    local right_intersection_distance = 1000000 -- sufficiently large enough
 
     -- check against each obstacle
     for _, obstacle in ipairs(game_state.obstacles) do
@@ -351,24 +351,24 @@ local update_giraffe = function(giraffe, engine, game, dt)
             arrival_force = arrival_force * arrival_weight
         end
 
-        -- // separation
-        -- {
-        --     for (Giraffe *other_giraffe = array::begin(game.game_state.giraffes); other_giraffe != array::end(game.game_state.giraffes); ++other_giraffe) {
-        --         if (other_giraffe != &giraffe && !other_giraffe->dead) {
-        --             glm::vec2 offset = other_giraffe->mob.position - giraffe.mob.position;
-        --             const float distance_squared = glm::length2(offset);
-        --             const float near_distance_squared = (giraffe.mob.radius + other_giraffe->mob.radius) * (giraffe.mob.radius + other_giraffe->mob.radius);
-        --             if (distance_squared <= near_distance_squared) {
-        --                 float distance = sqrt(distance_squared);
-        --                 offset /= distance;
-        --                 offset *= (giraffe.mob.radius + other_giraffe->mob.radius);
-        --                 separation_force -= offset;
-        --             }
-        --         }
-        --     }
+        -- separation
+        do
+            for _, other_giraffe in ipairs(game_state.giraffes) do
+                if other_giraffe ~= giraffe and not other_giraffe.dead then
+                    local offset = other_giraffe.mob.position - giraffe.mob.position
+                    local distance_squared = Glm.length2(offset)
+                    local near_distance_squared = (giraffe.mob.radius + other_giraffe.mob.radius) * (giraffe.mob.radius + other_giraffe.mob.radius)
+                    if distance_squared <= near_distance_squared then
+                        local distance = math.sqrt(distance_squared)
+                        offset = offset / distance
+                        offset = offset * (giraffe.mob.radius + other_giraffe.mob.radius)
+                        separation_force = separation_force - offset
+                    end
+                end
+            end
 
-        --     separation_force *= separation_weight;
-        -- }
+            separation_force = separation_force * separation_weight
+        end
 
         -- avoidance
         do
@@ -377,7 +377,7 @@ local update_giraffe = function(giraffe, engine, game, dt)
         end
     end
 
-    giraffe.mob.steering_direction = truncate(arrival_force + flee_force + separation_force + avoidance_force, giraffe.mob.max_force)
+    giraffe.mob.steering_direction = Glm.truncate(arrival_force + flee_force + separation_force + avoidance_force, giraffe.mob.max_force)
 
     update_mob(giraffe.mob, game, dt)
 
@@ -410,12 +410,76 @@ local update_giraffe = function(giraffe, engine, game, dt)
 end
 
 local update_lion = function(lion, engine, game, t, dt)
-    -- TODO: Implement behavior
+    if not lion.locked_giraffe then
+        if lion.energy >= lion.max_energy then
+            local found_giraffe = nil
+            local distance = 1000000
+            for _, giraffe in ipairs(game_state.giraffes) do
+                if not giraffe.dead then
+                    local d = Glm.length(giraffe.mob.position - lion.mob.position)
+                    if d < distance then
+                        distance = d
+                        found_giraffe = giraffe
+                    end
+                end
+            end
+
+            if found_giraffe then
+                lion.locked_giraffe = found_giraffe
+                lion.energy = lion.max_energy
+            end
+        else
+            lion.energy = lion.energy + dt * 2
+        end
+    end
+
+    if lion.locked_giraffe then
+        lion.mob.steering_target = lion.locked_giraffe.mob.position
+
+        local pursue_force = Glm.vec2.new(0, 0)
+        local pursue_weight = 1
+
+        local avoidance_force = Glm.vec2.new(0, 0)
+        local avoidance_weight = 10
+
+        -- Pursue
+        do
+            local desired_velocity = Glm.normalize(lion.locked_giraffe.mob.position - lion.mob.position) * lion.mob.max_speed
+            pursue_force = desired_velocity - lion.mob.velocity
+            pursue_force = pursue_force * pursue_weight
+        end
+
+        -- Avoidance
+        do
+            avoidance_force = avoidance_behavior(lion.mob, engine, game)
+            avoidance_force = avoidance_force * avoidance_weight
+        end
+
+        lion.mob.steering_direction = Glm.truncate(pursue_force + avoidance_force, lion.mob.max_force)
+
+        if Glm.length(lion.locked_giraffe.mob.position - lion.mob.position) <= lion.mob.radius then
+            lion.locked_giraffe.dead = true
+            Engine.color_sprite(game.sprites, lion.locked_giraffe.sprite_id, Engine.Color.Pico8.light_gray)
+
+            lion.locked_giraffe = nil
+            lion.energy = 0
+            lion.mob.steering_direction = Glm.vec2.new(0, 0)
+        else
+            lion.energy = lion.energy - dt
+            if lion.energy <= 0.0 then
+                lion.locked_giraffe = nil
+                lion.energy = 0.0
+                lion.mob.steering_direction = Glm.vec2.new(0, 0)
+            end
+        end
+    end
+
+    update_mob(lion.mob, game, dt);
 
     local lion_frame = Engine.atlas_frame(game.sprites.atlas, "lion")
 
     local transform = Glm.mat4.new(1.0)
-    local flip = lion.locked_giraffe and lion.locked_giraffe.mob_position.x < lion.mob.position.x
+    local flip = lion.locked_giraffe and lion.locked_giraffe.mob.position.x < lion.mob.position.x
 
     local x_offset = lion_frame.rect.size.x * lion_frame.pivot.x
 
@@ -449,5 +513,98 @@ function render(engine, game)
     Engine.render_sprites(engine, game.sprites)
 end
 
-function render_imgui()
+function render_imgui(engine, game)
+    local draw_list = Imgui.GetForegroundDrawList()
+
+    if game_state.debug_draw then
+        local debug_draw_mob = function(mob)
+            local origin = Glm.vec2.new(mob.position.x, engine.window_rect.size.y - mob.position.y)
+
+            -- steer
+            do
+                local steer = Glm.truncate(mob.steering_direction, mob.max_force)
+                steer.y = steer.y * -1
+                local steer_ratio = Glm.length(steer) / mob.max_force
+                local end_point = origin + Glm.normalize(steer) * (steer_ratio * 100)
+                draw_list:AddLine(Imgui.ImVec2.new(origin.x, origin.y), Imgui.ImVec2.new(end_point.x, end_point.y), Imgui.IM_COL32(255, 0, 0, 255), 1.0)
+                local ss = string.format("steer: %.0f", Glm.length(steer))
+                draw_list:AddText(Imgui.ImVec2.new(origin.x, origin.y + 8), Imgui.IM_COL32(255, 0, 0, 255), ss)
+            end
+
+            -- velocity
+            do
+                local vel = Glm.truncate(mob.velocity, mob.max_speed)
+                vel.y = vel.y * -1
+                local vel_ratio = Glm.length(vel) / mob.max_speed
+                local end_point = origin + Glm.normalize(vel) * (vel_ratio * 100)
+                draw_list:AddLine(Imgui.ImVec2.new(origin.x, origin.y), Imgui.ImVec2.new(end_point.x, end_point.y), Imgui.IM_COL32(0, 255, 0, 255), 1.0)
+                local ss = string.format("veloc: %.0f", Glm.length(vel))
+                draw_list:AddText(Imgui.ImVec2.new(origin.x, origin.y + 20), Imgui.IM_COL32(0, 255, 0, 255), ss)
+            end
+
+            -- avoidance
+            if game_state.debug_avoidance then
+                local forward = Glm.normalize(mob.steering_target - mob.position)
+
+                forward.y = forward.y * -1
+                local look_ahead = origin + forward * 200
+
+                local right_vector = Glm.vec2.new(-forward.y, forward.x)
+                local left_vector = Glm.vec2.new(forward.y, -forward.x)
+
+                local left_start = origin + left_vector * mob.radius
+                local left_end = look_ahead + left_vector * mob.radius
+
+                local right_start = origin + right_vector * mob.radius
+                local right_end = look_ahead + right_vector * mob.radius
+
+                draw_list:AddLine(Imgui.ImVec2.new(left_start.x, left_start.y), Imgui.ImVec2.new(left_end.x, left_end.y), Imgui.IM_COL32(255, 255, 0, 255), 1.0)
+                draw_list:AddLine(Imgui.ImVec2.new(right_start.x, right_start.y), Imgui.ImVec2.new(right_end.x, right_end.y), Imgui.IM_COL32(255, 255, 0, 255), 1.0)
+            end
+
+            -- radius
+            do
+                draw_list:AddCircle(Imgui.ImVec2.new(origin.x, origin.y), mob.radius, Imgui.IM_COL32(255, 255, 0, 255), 0, 1.0)
+            end
+        end
+
+        for _, giraffe in ipairs(game_state.giraffes) do
+            if not giraffe.dead then
+                debug_draw_mob(giraffe.mob)
+            end
+        end
+
+        -- lion
+        do
+            debug_draw_mob(game_state.lion.mob)
+
+            local origin = Glm.vec2.new(game_state.lion.mob.position.x, engine.window_rect.size.y - game_state.lion.mob.position.y)
+
+            local ss = string.format("energy: %.0f", game_state.lion.energy)
+            draw_list:AddText(Imgui.ImVec2.new(origin.x, origin.y + 32), Imgui.IM_COL32(255, 0, 0, 255), ss)
+        end
+
+        -- food
+        draw_list:AddText(Imgui.ImVec2.new(game_state.food.position.x, engine.window_rect.size.y - game_state.food.position.y + 8), Imgui.IM_COL32(255, 255, 0, 255), "food")
+    end
+
+    -- obstacles
+    for _, obstacle in ipairs(game_state.obstacles) do
+        local obstacle_color = Imgui.IM_COL32(obstacle.color.r * 255, obstacle.color.g * 255, obstacle.color.b * 255, 255)
+        local position = Imgui.ImVec2.new(obstacle.position.x, engine.window_rect.size.y - obstacle.position.y)
+        draw_list:AddCircle(position, obstacle.radius, obstacle_color, 0, 2.0)
+    end
+
+    -- debug text
+    do
+        local ss = string.format("KEY_F1: Debug Draw %s\n", game_state.debug_draw and "on" or "off")
+        ss = ss .. string.format("KEY_F2: Debug Avoidance %s\n", game_state.debug_avoidance and "on" or "off")
+        ss = ss .. string.format("KEY_1: Spawn 1 giraffe\n")
+        ss = ss .. string.format("KEY_5: Spawn 5 giraffes\n")
+        ss = ss .. string.format("KEY_0: Spawn 10 giraffes\n")
+        ss = ss .. string.format("MOUSE_LEFT: Move food\n")
+        ss = ss .. string.format("Giraffes: %u\n", #game_state.giraffes)
+
+        draw_list:AddText(Imgui.ImVec2.new(8, 8), Imgui.IM_COL32(255, 255, 255, 255), ss)
+    end
 end

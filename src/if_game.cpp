@@ -22,6 +22,8 @@
 #include <engine/atlas.h>
 #include <engine/color.inl>
 
+#include <tuple>
+#include <imgui.h>
 #include <inttypes.h>
 
 extern "C" {
@@ -430,43 +432,49 @@ void init_glm_module(lua_State *L) {
     );
 
     // from util.h
-    glm["ray_circle_intersection"] = [L](const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 circle_center, float circle_radius) {
-        glm::vec2 out;
-        bool result = ray_circle_intersection(ray_origin, ray_direction, circle_center, circle_radius, out);
+    glm["ray_circle_intersection"] = [L](const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 circle_center, float circle_radius) -> std::pair<bool, sol::optional<glm::vec2>> {
+        glm::vec2 intersection;
+        bool result = ray_circle_intersection(ray_origin, ray_direction, circle_center, circle_radius, intersection);
         if (result) {
-            lua_pushboolean(L, true);
-            sol::stack::push(L, sol::make_object(L, out));
-            return 2;
+            return std::make_pair(true, intersection);
         } else {
-            lua_pushboolean(L, false);
-            return 1;
+            return std::make_pair(false, sol::nullopt);
         }
     };
-    glm["ray_line_intersection"] = [L](const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 p1, const glm::vec2 p2) {
-        glm::vec2 out;
-        bool result = ray_line_intersection(ray_origin, ray_direction, p1, p2, out);
+
+    glm["ray_line_intersection"] = [L](const glm::vec2 ray_origin, const glm::vec2 ray_direction, const glm::vec2 p1, const glm::vec2 p2) -> std::pair<bool, sol::optional<glm::vec2>> {
+        glm::vec2 intersection;
+        bool result = ray_line_intersection(ray_origin, ray_direction, p1, p2, intersection);
         if (result) {
-            lua_pushboolean(L, true);
-            sol::stack::push(L, sol::make_object(L, out));
-            return 2;
+            return std::make_pair(true, intersection);
         } else {
-            lua_pushboolean(L, false);
-            return 1;
+            return std::make_pair(false, sol::nullopt);
         }
     };
+
     glm["circles_overlap"] = circles_overlap;
+
     glm["truncate"] = truncate;
 
     glm["normalize"] = [](const glm::vec2& v) {
         return glm::normalize(v);
     };
+
     glm["length"] = [](const glm::vec2& v) {
         return glm::length(v);
+
     };
+
+    glm["length2"] = [](const glm::vec2& v) {
+        return glm::length2(v);
+    };
+
     glm["to_Matrix4f"] = [](const glm::mat4 &mat) -> math::Matrix4f {
         return math::Matrix4f(glm::value_ptr(mat));
     };
+
     glm["translate"] = static_cast<glm::mat4(*)(const glm::mat4&, const glm::vec3&)>(glm::translate);
+
     glm["scale"] = static_cast<glm::mat4(*)(const glm::mat4&, const glm::vec3&)>(glm::scale);
 }
 
@@ -509,6 +517,34 @@ void init_math_module(lua_State *L) {
     );
 }
 
+void init_imgui_module(lua_State *L) {
+    sol::state_view lua(L);
+    sol::table imgui = lua["Imgui"].get_or_create<sol::table>();
+
+    imgui["GetForegroundDrawList"] = []() {
+        ImDrawList *draw_list = ImGui::GetForegroundDrawList();
+        return draw_list;
+    };
+
+    imgui["IM_COL32"] = [](float r, float g, float b, float a) {
+        return IM_COL32(r, g, b, a);
+    };
+
+    imgui.new_usertype<ImDrawList>("ImDrawList",
+        "AddLine", &ImDrawList::AddLine,
+        "AddText", [](ImDrawList &drawList, const ImVec2 &pos, ImU32 col, const char *text_begin) {
+            drawList.AddText(pos, col, text_begin, nullptr);
+        },
+        "AddCircle", &ImDrawList::AddCircle
+    );
+
+    imgui.new_usertype<ImVec2>("ImVec2",
+        sol::constructors<ImVec2(), ImVec2(float, float)>(),
+        "x", &ImVec2::x,
+        "y", &ImVec2::y
+    );
+}
+
 void initialize() {
     log_info("Initializing lua");
 
@@ -526,6 +562,7 @@ void initialize() {
     init_foundation_module(L);
     init_glm_module(L);
     init_math_module(L);
+    init_imgui_module(L);
 
     int load_status = luaL_loadfile(L, "scripts/main.lua");
     if (load_status) {

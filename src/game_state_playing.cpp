@@ -497,18 +497,10 @@ void game_state_playing_render(engine::Engine &engine, Game &game) {
 }
 
 void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
-    (void)engine;
-    (void)game;
-
     ImDrawList *draw_list = ImGui::GetForegroundDrawList();
     TempAllocator128 ta;
 
     if (game.game_state.debug_draw) {
-        const engine::AtlasFrame *giraffe_frame = engine::atlas_frame(*game.sprites->atlas, "giraffe");
-        const engine::AtlasFrame *lion_frame = engine::atlas_frame(*game.sprites->atlas, "lion");
-        assert(giraffe_frame);
-        assert(lion_frame);
-
         auto debug_draw_mob = [&draw_list, &engine, &game, &ta](Mob &mob) {
             glm::vec2 origin = {mob.position.x, engine.window_rect.size.y - mob.position.y};
 
@@ -577,15 +569,11 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
 
             Buffer ss(ta);
 
-            // energy
-            {
-                string_stream::printf(ss, "energy: %.0f", glm::length(game.game_state.lion.energy));
-                draw_list->AddText(ImVec2(origin.x, origin.y + 32), IM_COL32(255, 0, 0, 255), string_stream::c_str(ss));
-            }
+            string_stream::printf(ss, "energy: %.0f", game.game_state.lion.energy);
+            draw_list->AddText(ImVec2(origin.x, origin.y + 32), IM_COL32(255, 0, 0, 255), string_stream::c_str(ss));
         }
 
         // food
-        draw_list->AddCircleFilled(ImVec2(game.game_state.food.position.x, engine.window_rect.size.y - game.game_state.food.position.y), 3, IM_COL32(255, 255, 0, 255));
         draw_list->AddText(ImVec2(game.game_state.food.position.x, engine.window_rect.size.y - game.game_state.food.position.y + 8), IM_COL32(255, 255, 0, 255), "food");
     }
 
