@@ -1,5 +1,4 @@
 -- local dbg = require("scripts/debugger")
--- local profile = require("scripts/profile")
 local class = require("scripts/middleclass")
 
 local Mob = class("Mob")
@@ -77,10 +76,6 @@ local spawn_giraffes = function(engine, game, num_giraffes)
 end
 
 function on_enter(engine, game)
-    if profile then
-        profile.start()
-    end
-
     local time = os.time()
     rnd_pcg_seed(RANDOM_DEVICE, time)
 
@@ -142,10 +137,6 @@ function on_enter(engine, game)
 end
 
 function on_leave(engine, game)
-    if profile then
-        profile.stop()
-        print(profile.report(50))
-    end
 end
 
 function on_input(engine, game, input_command)
@@ -209,6 +200,8 @@ function on_input(engine, game, input_command)
 end
 
 local update_mob = function(mob, game, dt)
+    tracy.ZoneBeginN("lua_update_mob")
+
     local drag = 1
 
     -- lake drags you down
@@ -230,18 +223,26 @@ local update_mob = function(mob, game, dt)
     if Glm.length(mob.velocity) > 0.001 then
         mob.orientation = math.atan2(-mob.velocity.x, mob.velocity.y)
     end
+
+    tracy.ZoneEnd()
 end
 
 local arrival_behavior = function(mob, target_position, speed_ramp_distance)
+    tracy.ZoneBeginN("lua_arrival_behavior")
+
     local target_offset = target_position - mob.position
     local distance = Glm.length(target_offset)
     local ramped_speed = mob.max_speed * (distance / speed_ramp_distance)
     local clipped_speed = math.min(ramped_speed, mob.max_speed)
     local desired_velocity = (clipped_speed / distance) * target_offset
+
+    tracy.ZoneEnd()
     return desired_velocity - mob.velocity
 end
 
 local avoidance_behavior = function(mob, engine, game)
+    tracy.ZoneBeginN("lua_avoidance_behavior")
+
     local look_ahead_distance = 200
 
     local origin = mob.position
@@ -301,10 +302,13 @@ local avoidance_behavior = function(mob, engine, game)
         end
     end
 
+    tracy.ZoneEnd()
     return avoidance_force
 end
 
 local update_giraffe = function(giraffe, engine, game, dt)
+    tracy.ZoneBeginN("lua_update_giraffe")
+
     local arrival_force = Glm.vec2.new(0, 0)
     local arrival_weight = 1
 
@@ -416,9 +420,12 @@ local update_giraffe = function(giraffe, engine, game, dt)
 
     local matrix = Glm.to_Matrix4f(transform)
     Engine.transform_sprite(game.sprites, giraffe.sprite_id, matrix)
+    tracy.ZoneEnd()
 end
 
 local update_lion = function(lion, engine, game, t, dt)
+    tracy.ZoneBeginN("lua_update_lion")
+
     if not lion.locked_giraffe then
         if lion.energy >= lion.max_energy then
             local found_giraffe = nil
@@ -505,9 +512,12 @@ local update_lion = function(lion, engine, game, t, dt)
 
     local matrix = Glm.to_Matrix4f(transform)
     Engine.transform_sprite(game.sprites, lion.sprite_id, matrix)
+    tracy.ZoneEnd()
 end
 
 function update(engine, game, t, dt)
+--    tracy.ZoneBeginN("lua_update")
+
     for _, giraffe in ipairs(game_state.giraffes) do
         update_giraffe(giraffe, engine, game, dt)
     end
@@ -516,13 +526,21 @@ function update(engine, game, t, dt)
 
     Engine.update_sprites(game.sprites, t, dt)
     Engine.commit_sprites(game.sprites)
+
+--    tracy.ZoneEnd()
 end
 
 function render(engine, game)
+    tracy.ZoneBeginN("lua_render")
+
     Engine.render_sprites(engine, game.sprites)
+
+    tracy.ZoneEnd()
 end
 
 function render_imgui(engine, game)
+    tracy.ZoneBeginN("lua_render_imgui")
+
     local draw_list = Imgui.GetForegroundDrawList()
 
     if game_state.debug_draw then
@@ -616,4 +634,6 @@ function render_imgui(engine, game)
 
         draw_list:AddText(Imgui.ImVec2.new(8, 8), Imgui.IM_COL32(255, 255, 255, 255), ss)
     end
+
+    tracy.ZoneEnd()
 end
