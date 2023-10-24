@@ -9,26 +9,26 @@
 #include <backward.hpp>
 #include <memory.h>
 
-#if defined(SUPERLUMINAL)
-#include <Superluminal/PerformanceAPI.h>
-#endif
-
 #if defined(LIVE_PP)
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
 #include "LPP_API_x64_CPP.h"
 #endif
 #pragma warning(pop)
 
+#if defined(TRACY_ENABLE)
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
+#include <tracy/Tracy.hpp>
+#endif
+
 #include "game.h"
 
 int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
-
-#if defined(SUPERLUMINAL)
-    PerformanceAPI_SetCurrentThreadName("main");
-#endif
 
     // Validate platform
     {

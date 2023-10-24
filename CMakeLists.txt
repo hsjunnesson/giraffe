@@ -45,17 +45,6 @@ if (NOT bitsquidfoundation_POPULATED)
     FetchContent_MakeAvailable(BitSquidFoundation)
 endif()
 
-
-if (TRACY)
-    FetchContent_Declare (
-        tracy
-        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-    )
-
-    FetchContent_MakeAvailable(tracy)
-endif()
-
-
 add_subdirectory("${CMAKE_SOURCE_DIR}/chocolate")
 
 
@@ -155,10 +144,6 @@ endif()
 
 # Includes
 
-if (TRACY)
-    include_directories(SYSTEM PUBLIC ${tracy_SOURCE_DIR}/public)
-endif()
-
 if (LIVE_PP)
     include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/LivePP/API/x64)
 endif()
@@ -170,10 +155,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)
 
 if (HAS_LUA OR HAS_LUAJIT)
     target_link_libraries(${PROJECT_NAME} PRIVATE sol2)
-endif()
-
-if (TRACY)
-    target_link_libraries(${PROJECT_NAME} PRIVATE TracyClient)
 endif()
 
 
@@ -192,17 +173,9 @@ if (MSVC)
         source_group("lua" FILES ${SRC_LUA})
     endif()
 
-    if (TRACY)
-        target_compile_definitions(${PROJECT_NAME} PRIVATE TRACY_ENABLE=1)
-    endif()
-
     if (LIVE_PP)
         target_compile_definitions(${PROJECT_NAME} PRIVATE LIVE_PP=1 NOMINMAX=1)
         target_compile_options(${PROJECT_NAME} PRIVATE /Zi /Gm- /Gy /Gw)
         target_link_options(${PROJECT_NAME} PRIVATE /FUNCTIONPADMIN /OPT:NOREF /OPT:NOICF /DEBUG:FULL)
-    endif()
-
-    if (SUPERLUMINAL)
-        target_compile_definitions(${PROJECT_NAME} PRIVATE SUPERLUMINAL=1)
     endif()
 endif()
