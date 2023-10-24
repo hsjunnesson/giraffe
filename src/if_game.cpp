@@ -553,8 +553,6 @@ void initialize() {
     luaopen_os(L);
     luaL_openlibs(L);
 
-    tracy::LuaRegister(L);
-    
     lua_pushcfunction(L, my_print);
     lua_setglobal(L, "print");
 
