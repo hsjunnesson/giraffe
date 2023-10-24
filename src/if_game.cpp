@@ -23,6 +23,7 @@
 #include <engine/color.inl>
 
 #include <tuple>
+#include <stack>
 #include <imgui.h>
 #include <inttypes.h>
 
@@ -37,8 +38,12 @@ extern "C" {
 
 #if defined(HAS_LUA) || defined(HAS_LUAJIT)
 
+#include <Superluminal/PerformanceAPI.h>
+
 namespace {
 lua_State *L = nullptr;
+uint64_t counter = 0;
+thread_local std::stack<PerformanceAPI::InstrumentationScope> scope_stack;
 } // namespace
 
 namespace lua {
@@ -46,7 +51,7 @@ using namespace foundation;
 using namespace foundation::string_stream;
 
 // Custom print function that uses engine logging.
-static int my_print(lua_State* L) {
+static int my_print(lua_State *L) {
     using namespace string_stream;
 
     TempAllocator128 ta;
@@ -121,6 +126,10 @@ inline void fun(const char *function_name, Args&&... args) {
         sol::error err = r;
         log_fatal("[LUA] Error in function %s: %s", function_name, err.what());
     }
+
+    while (!scope_stack.empty()) {
+        scope_stack.pop();
+    }
 }
 
 void init_utilities(lua_State *L) {
@@ -149,6 +158,22 @@ void init_utilities(lua_State *L) {
     lua.new_usertype<rnd_pcg_t>("rnd_pcg_t");
     lua["rnd_pcg_nextf"] = rnd_pcg_nextf;
     lua["rnd_pcg_seed"] = rnd_pcg_seed;
+
+    // profiler
+    {
+        sol::state_view lua(L);
+        sol::table profiler = lua["Profiler"].get_or_create<sol::table>();
+        profiler["start_scope"] = [](const char *name) {
+            char superluminal_event_data[256];
+            snprintf(superluminal_event_data, 256, "%s %" PRIu64 "", name, ++counter);
+            scope_stack.emplace("lua", superluminal_event_data);
+        };
+        profiler["end_scope"] = []() {
+            if (!scope_stack.empty()) {
+                scope_stack.pop();
+            }
+        };
+    }
 }
 
 // Create the Engine module and export all functions, types, and enums that's used in this game.

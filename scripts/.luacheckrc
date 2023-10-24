@@ -1,5 +1,5 @@
 stds.giraffe = {
-    read_globals = {"Engine", "Game", "Hash", "Glm", "Math", "Imgui", "Identifier", "tracy", "rnd_pcg_t", "rnd_pcg_nextf", "rnd_pcg_seed"},
+    read_globals = {"Engine", "Game", "Hash", "Glm", "Math", "Imgui", "Identifier", "Profiler", "rnd_pcg_t", "rnd_pcg_nextf", "rnd_pcg_seed"},
     globals = {"on_enter", "on_leave", "on_input", "update", "render", "render_imgui"},
 }
 

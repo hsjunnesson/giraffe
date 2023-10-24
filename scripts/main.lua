@@ -200,7 +200,7 @@ function on_input(engine, game, input_command)
 end
 
 local update_mob = function(mob, game, dt)
-    tracy.ZoneBeginN("lua_update_mob")
+    Profiler.start_scope("update_mob")
 
     local drag = 1
 
@@ -224,11 +224,11 @@ local update_mob = function(mob, game, dt)
         mob.orientation = math.atan2(-mob.velocity.x, mob.velocity.y)
     end
 
-    tracy.ZoneEnd()
+    Profiler.end_scope()
 end
 
 local arrival_behavior = function(mob, target_position, speed_ramp_distance)
-    tracy.ZoneBeginN("lua_arrival_behavior")
+    Profiler.start_scope("arrival_behavior")
 
     local target_offset = target_position - mob.position
     local distance = Glm.length(target_offset)
@@ -236,12 +236,12 @@ local arrival_behavior = function(mob, target_position, speed_ramp_distance)
     local clipped_speed = math.min(ramped_speed, mob.max_speed)
     local desired_velocity = (clipped_speed / distance) * target_offset
 
-    tracy.ZoneEnd()
+    Profiler.end_scope()
     return desired_velocity - mob.velocity
 end
 
 local avoidance_behavior = function(mob, engine, game)
-    tracy.ZoneBeginN("lua_avoidance_behavior")
+    Profiler.start_scope("avoidance_behavior")
 
     local look_ahead_distance = 200
 
@@ -302,12 +302,12 @@ local avoidance_behavior = function(mob, engine, game)
         end
     end
 
-    tracy.ZoneEnd()
+    Profiler.end_scope()
     return avoidance_force
 end
 
 local update_giraffe = function(giraffe, engine, game, dt)
-    tracy.ZoneBeginN("lua_update_giraffe")
+    Profiler.start_scope("update_giraffe")
 
     local arrival_force = Glm.vec2.new(0, 0)
     local arrival_weight = 1
@@ -420,11 +420,12 @@ local update_giraffe = function(giraffe, engine, game, dt)
 
     local matrix = Glm.to_Matrix4f(transform)
     Engine.transform_sprite(game.sprites, giraffe.sprite_id, matrix)
-    tracy.ZoneEnd()
+
+    Profiler.end_scope()
 end
 
 local update_lion = function(lion, engine, game, t, dt)
-    tracy.ZoneBeginN("lua_update_lion")
+    Profiler.start_scope("update_lion")
 
     if not lion.locked_giraffe then
         if lion.energy >= lion.max_energy then
@@ -512,11 +513,12 @@ local update_lion = function(lion, engine, game, t, dt)
 
     local matrix = Glm.to_Matrix4f(transform)
     Engine.transform_sprite(game.sprites, lion.sprite_id, matrix)
-    tracy.ZoneEnd()
+
+    Profiler.end_scope()
 end
 
 function update(engine, game, t, dt)
---    tracy.ZoneBeginN("lua_update")
+    Profiler.start_scope("update")
 
     for _, giraffe in ipairs(game_state.giraffes) do
         update_giraffe(giraffe, engine, game, dt)
@@ -524,23 +526,17 @@ function update(engine, game, t, dt)
 
     update_lion(game_state.lion, engine, game, t, dt)
 
+    Profiler.end_scope()
+
     Engine.update_sprites(game.sprites, t, dt)
     Engine.commit_sprites(game.sprites)
-
---    tracy.ZoneEnd()
 end
 
 function render(engine, game)
-    tracy.ZoneBeginN("lua_render")
-
     Engine.render_sprites(engine, game.sprites)
-
-    tracy.ZoneEnd()
 end
 
 function render_imgui(engine, game)
-    tracy.ZoneBeginN("lua_render_imgui")
-
     local draw_list = Imgui.GetForegroundDrawList()
 
     if game_state.debug_draw then
@@ -634,6 +630,4 @@ function render_imgui(engine, game)
 
         draw_list:AddText(Imgui.ImVec2.new(8, 8), Imgui.IM_COL32(255, 255, 255, 255), ss)
     end
-
-    tracy.ZoneEnd()
 end
