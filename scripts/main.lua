@@ -1,4 +1,4 @@
--- local dbg = require("scripts/debugger")
+local dbg = require("scripts/debugger")
 --local profile = require("scripts/profile")
 
 local class = require("scripts/middleclass")
@@ -6,10 +6,10 @@ local class = require("scripts/middleclass")
 local Mob = class("Mob")
 function Mob:initialize()
     self.mass = 100
-    self.position = Glm.vec2.new(0, 0)
-    self.velocity = Glm.vec2.new(0, 0)
-    self.steering_direction = Glm.vec2.new(0, 0)
-    self.steering_target = Glm.vec2.new(0, 0)
+    self.position = Glm.vec2(0, 0)
+    self.velocity = Glm.vec2(0, 0)
+    self.steering_direction = Glm.vec2(0, 0)
+    self.steering_target = Glm.vec2(0, 0)
     self.max_force = 30
     self.max_speed = 30
     self.orientation = 0
@@ -35,12 +35,12 @@ end
 local Food = class("Food")
 function Food:initialize()
     self.sprite_id = 0
-    self.position = Glm.vec2.new(0, 0)
+    self.position = Glm.vec2(0, 0)
 end
 
 local Obstacle = class("Obstacle")
 function Obstacle:initialize()
-    self.position = Glm.vec2.new(0, 0)
+    self.position = Glm.vec2(0, 0)
     self.radius = 100
     self.color = Math.Color4f.new(1, 1, 1, 1)
 end
@@ -66,7 +66,7 @@ local spawn_giraffes = function(engine, game, num_giraffes)
         giraffe.mob.max_force = 1000
         giraffe.mob.max_speed = 300
         giraffe.mob.radius = 20
-        giraffe.mob.position = Glm.vec2.new(
+        giraffe.mob.position = Glm.vec2(
             50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.x - 100),
             50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.y - 100)
         )
@@ -81,14 +81,14 @@ function on_enter(engine, game)
     if profile then
         profile.start()
     end
-
+    
     local time = os.time()
     rnd_pcg_seed(RANDOM_DEVICE, time)
 
     -- Spawn lake
     do
         local lake_obstacle = Obstacle:new()
-        lake_obstacle.position = Glm.vec2.new(
+        lake_obstacle.position = Glm.vec2(
             (engine.window_rect.size.x / 2) + 200 * rnd_pcg_nextf(RANDOM_DEVICE) - 100,
             (engine.window_rect.size.y / 2) + 200 * rnd_pcg_nextf(RANDOM_DEVICE) - 100
         )
@@ -100,7 +100,7 @@ function on_enter(engine, game)
     -- Spawn trees
     for _ = 1, 10 do
         local obstacle = Obstacle:new()
-        obstacle.position = Glm.vec2.new(
+        obstacle.position = Glm.vec2(
             10 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.x - 20),
             10 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.y - 20)
         )
@@ -116,17 +116,17 @@ function on_enter(engine, game)
     do
         local sprite = Engine.add_sprite(game.sprites, "food", Engine.Color.Pico8.green)
         game_state.food.sprite_id = sprite:identifier()
-        game_state.food.position = Glm.vec2.new(0.25 * engine.window_rect.size.x, 0.25 * engine.window_rect.size.y)
+        game_state.food.position = Glm.vec2(0.25 * engine.window_rect.size.x, 0.25 * engine.window_rect.size.y)
 
-        local transform = Glm.mat4.new(1.0)
-        transform = Glm.translate(transform, Glm.vec3.new(
+        local transform = Glm.mat4(1.0)
+        transform = Glm.translate(transform, Glm.vec3(
             math.floor(game_state.food.position.x - sprite.atlas_frame.rect.size.x * sprite.atlas_frame.pivot.x),
             math.floor(game_state.food.position.y - sprite.atlas_frame.rect.size.y * (1.0 - sprite.atlas_frame.pivot.y)),
             FOOD_Z_LAYER
         ))
-        transform = Glm.scale(transform, Glm.vec3.new(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
+        transform = Glm.scale(transform, Glm.vec3(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
 
-        local matrix = Glm.to_Matrix4f(transform)
+        local matrix = Math.matrix4f_from_transform(transform)
         Engine.transform_sprite(game.sprites, game_state.food.sprite_id, matrix)
     end
 
@@ -134,7 +134,7 @@ function on_enter(engine, game)
     do
         local sprite = Engine.add_sprite(game.sprites, "lion", Engine.Color.Pico8.yellow)
         game_state.lion.sprite_id = sprite:identifier()
-        game_state.lion.mob.position = Glm.vec2.new(engine.window_rect.size.x * 0.75, engine.window_rect.size.y * 0.75)
+        game_state.lion.mob.position = Glm.vec2(engine.window_rect.size.x * 0.75, engine.window_rect.size.y * 0.75)
         game_state.lion.mob.mass = 25
         game_state.lion.mob.max_force = 1000
         game_state.lion.mob.max_speed = 400
@@ -192,18 +192,18 @@ function on_input(engine, game, input_command)
         if input_command.mouse_state.mouse_left_state == Engine.TriggerState.Pressed then
             local x = input_command.mouse_state.mouse_position.x
             local y = engine.window_rect.size.y - input_command.mouse_state.mouse_position.y
-            game_state.food.position = Glm.vec2.new(x, y)
+            game_state.food.position = Glm.vec2(x, y)
 
             local sprite = Engine.get_sprite(game.sprites, game_state.food.sprite_id)
-            local transform = Glm.mat4.new(1.0)
-            transform = Glm.translate(transform, Glm.vec3.new(
+            local transform = Glm.mat4(1.0)
+            transform = Glm.translate(transform, Glm.vec3(
                 math.floor(game_state.food.position.x - sprite.atlas_frame.rect.size.x * sprite.atlas_frame.pivot.x),
                 math.floor(game_state.food.position.y - sprite.atlas_frame.rect.size.y * (1.0 - sprite.atlas_frame.pivot.y)),
                 FOOD_Z_LAYER
             ))
-            transform = Glm.scale(transform, Glm.vec3.new(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
+            transform = Glm.scale(transform, Glm.vec3(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
 
-            local matrix = Glm.to_Matrix4f(transform)
+            local matrix = Math.matrix4f_from_transform(transform)
             Engine.transform_sprite(game.sprites, game_state.food.sprite_id, matrix)
         end
     end
@@ -250,8 +250,8 @@ local avoidance_behavior = function(mob, engine, game)
     local target_distance = Glm.length(mob.steering_target - origin)
     local forward = Glm.normalize(mob.steering_target - origin)
 
-    local right_vector = Glm.vec2.new(forward.y, -forward.x)
-    local left_vector = Glm.vec2.new(-forward.y, forward.x)
+    local right_vector = Glm.vec2(forward.y, -forward.x)
+    local left_vector = Glm.vec2(-forward.y, forward.x)
 
     local left_start = origin + left_vector * mob.radius
     local right_start = origin + right_vector * mob.radius
@@ -287,11 +287,11 @@ local avoidance_behavior = function(mob, engine, game)
         end
     end
 
-    local avoidance_force = Glm.vec2.new(0, 0)
+    local avoidance_force = Glm.vec2(0, 0)
 
     if right_intersects or left_intersects then
         if target_distance <= left_intersection_distance and target_distance <= right_intersection_distance then
-            return Glm.vec2.new(0, 0)
+            return Glm.vec2(0, 0)
         end
 
         if left_intersection_distance < right_intersection_distance then
@@ -307,16 +307,16 @@ local avoidance_behavior = function(mob, engine, game)
 end
 
 local update_giraffe = function(giraffe, engine, game, dt)
-    local arrival_force = Glm.vec2.new(0, 0)
+    local arrival_force = Glm.vec2(0, 0)
     local arrival_weight = 1
 
-    local flee_force = Glm.vec2.new(0, 0)
+    local flee_force = Glm.vec2(0, 0)
     local flee_weight = 1
 
-    local separation_force = Glm.vec2.new(0, 0)
+    local separation_force = Glm.vec2(0, 0)
     local separation_weight = 10
 
-    local avoidance_force = Glm.vec2.new(0, 0)
+    local avoidance_force = Glm.vec2(0, 0)
     local avoidance_weight = 10
 
     if not giraffe.dead then
@@ -336,7 +336,7 @@ local update_giraffe = function(giraffe, engine, game, dt)
             local desired_velocity = Glm.normalize(flee_direction) * giraffe.mob.max_speed
             flee_force = desired_velocity - giraffe.mob.velocity
 
-            local boundary_avoidance_force = Glm.vec2.new(0, 0)
+            local boundary_avoidance_force = Glm.vec2(0, 0)
             local buffer_distance = 100
 
             if giraffe.mob.position.x <= buffer_distance then
@@ -394,7 +394,7 @@ local update_giraffe = function(giraffe, engine, game, dt)
 
     local giraffe_frame = Engine.atlas_frame(game.sprites.atlas, "giraffe")
 
-    local transform = Glm.mat4.new(1.0)
+    local transform = Glm.mat4(1.0)
     local flip_x = giraffe.mob.velocity.x <= 0.0
     local flip_y = giraffe.dead == true
 
@@ -409,14 +409,14 @@ local update_giraffe = function(giraffe, engine, game, dt)
         y_offset = y_offset * -1.0
     end
 
-    transform = Glm.translate(transform, Glm.vec3.new(
+    transform = Glm.translate(transform, Glm.vec3(
         math.floor(giraffe.mob.position.x - x_offset),
         math.floor(giraffe.mob.position.y - y_offset),
         GIRAFFE_Z_LAYER
     ))
-    transform = Glm.scale(transform, Glm.vec3.new((flip_x and -1.0 or 1.0) * giraffe_frame.rect.size.x, (flip_y and -1.0 or 1.0) * giraffe_frame.rect.size.y, 1.0))
+    transform = Glm.scale(transform, Glm.vec3((flip_x and -1.0 or 1.0) * giraffe_frame.rect.size.x, (flip_y and -1.0 or 1.0) * giraffe_frame.rect.size.y, 1.0))
 
-    local matrix = Glm.to_Matrix4f(transform)
+    local matrix = Math.matrix4f_from_transform(transform)
     Engine.transform_sprite(game.sprites, giraffe.sprite_id, matrix)
 end
 
@@ -447,10 +447,10 @@ local update_lion = function(lion, engine, game, t, dt)
     if lion.locked_giraffe then
         lion.mob.steering_target = lion.locked_giraffe.mob.position
 
-        local pursue_force = Glm.vec2.new(0, 0)
+        local pursue_force = Glm.vec2(0, 0)
         local pursue_weight = 1
 
-        local avoidance_force = Glm.vec2.new(0, 0)
+        local avoidance_force = Glm.vec2(0, 0)
         local avoidance_weight = 10
 
         -- Pursue
@@ -474,13 +474,13 @@ local update_lion = function(lion, engine, game, t, dt)
 
             lion.locked_giraffe = nil
             lion.energy = 0
-            lion.mob.steering_direction = Glm.vec2.new(0, 0)
+            lion.mob.steering_direction = Glm.vec2(0, 0)
         else
             lion.energy = lion.energy - dt
             if lion.energy <= 0.0 then
                 lion.locked_giraffe = nil
                 lion.energy = 0.0
-                lion.mob.steering_direction = Glm.vec2.new(0, 0)
+                lion.mob.steering_direction = Glm.vec2(0, 0)
             end
         end
     end
@@ -489,7 +489,7 @@ local update_lion = function(lion, engine, game, t, dt)
 
     local lion_frame = Engine.atlas_frame(game.sprites.atlas, "lion")
 
-    local transform = Glm.mat4.new(1.0)
+    local transform = Glm.mat4(1.0)
     local flip = lion.locked_giraffe and lion.locked_giraffe.mob.position.x < lion.mob.position.x
 
     local x_offset = lion_frame.rect.size.x * lion_frame.pivot.x
@@ -498,14 +498,14 @@ local update_lion = function(lion, engine, game, t, dt)
         x_offset = x_offset * -1.0
     end
 
-    transform = Glm.translate(transform, Glm.vec3.new(
+    transform = Glm.translate(transform, Glm.vec3(
         math.floor(lion.mob.position.x - x_offset),
         math.floor(lion.mob.position.y - lion_frame.rect.size.y * (1.0 - lion_frame.pivot.y)),
         LION_Z_LAYER
     ))
-    transform = Glm.scale(transform, Glm.vec3.new((flip and -1.0 or 1.0) * lion_frame.rect.size.x, lion_frame.rect.size.y, 1.0))
+    transform = Glm.scale(transform, Glm.vec3((flip and -1.0 or 1.0) * lion_frame.rect.size.x, lion_frame.rect.size.y, 1.0))
 
-    local matrix = Glm.to_Matrix4f(transform)
+    local matrix = Math.matrix4f_from_transform(transform)
     Engine.transform_sprite(game.sprites, lion.sprite_id, matrix)
 end
 
@@ -529,7 +529,7 @@ function render_imgui(engine, game)
 
     if game_state.debug_draw then
         local debug_draw_mob = function(mob)
-            local origin = Glm.vec2.new(mob.position.x, engine.window_rect.size.y - mob.position.y)
+            local origin = Glm.vec2(mob.position.x, engine.window_rect.size.y - mob.position.y)
 
             -- steer
             do
@@ -537,9 +537,9 @@ function render_imgui(engine, game)
                 steer.y = steer.y * -1
                 local steer_ratio = Glm.length(steer) / mob.max_force
                 local end_point = origin + Glm.normalize(steer) * (steer_ratio * 100)
-                draw_list:AddLine(Imgui.ImVec2.new(origin.x, origin.y), Imgui.ImVec2.new(end_point.x, end_point.y), Imgui.IM_COL32(255, 0, 0, 255), 1.0)
+                draw_list:AddLine(Imgui.Imvec2(origin.x, origin.y), Imgui.Imvec2(end_point.x, end_point.y), Imgui.IM_COL32(255, 0, 0, 255), 1.0)
                 local ss = string.format("steer: %.0f", Glm.length(steer))
-                draw_list:AddText(Imgui.ImVec2.new(origin.x, origin.y + 8), Imgui.IM_COL32(255, 0, 0, 255), ss)
+                draw_list:AddText(Imgui.Imvec2(origin.x, origin.y + 8), Imgui.IM_COL32(255, 0, 0, 255), ss)
             end
 
             -- velocity
@@ -548,9 +548,9 @@ function render_imgui(engine, game)
                 vel.y = vel.y * -1
                 local vel_ratio = Glm.length(vel) / mob.max_speed
                 local end_point = origin + Glm.normalize(vel) * (vel_ratio * 100)
-                draw_list:AddLine(Imgui.ImVec2.new(origin.x, origin.y), Imgui.ImVec2.new(end_point.x, end_point.y), Imgui.IM_COL32(0, 255, 0, 255), 1.0)
+                draw_list:AddLine(Imgui.Imvec2(origin.x, origin.y), Imgui.Imvec2(end_point.x, end_point.y), Imgui.IM_COL32(0, 255, 0, 255), 1.0)
                 local ss = string.format("veloc: %.0f", Glm.length(vel))
-                draw_list:AddText(Imgui.ImVec2.new(origin.x, origin.y + 20), Imgui.IM_COL32(0, 255, 0, 255), ss)
+                draw_list:AddText(Imgui.Imvec2(origin.x, origin.y + 20), Imgui.IM_COL32(0, 255, 0, 255), ss)
             end
 
             -- avoidance
@@ -560,8 +560,8 @@ function render_imgui(engine, game)
                 forward.y = forward.y * -1
                 local look_ahead = origin + forward * 200
 
-                local right_vector = Glm.vec2.new(-forward.y, forward.x)
-                local left_vector = Glm.vec2.new(forward.y, -forward.x)
+                local right_vector = Glm.vec2(-forward.y, forward.x)
+                local left_vector = Glm.vec2(forward.y, -forward.x)
 
                 local left_start = origin + left_vector * mob.radius
                 local left_end = look_ahead + left_vector * mob.radius
@@ -569,13 +569,13 @@ function render_imgui(engine, game)
                 local right_start = origin + right_vector * mob.radius
                 local right_end = look_ahead + right_vector * mob.radius
 
-                draw_list:AddLine(Imgui.ImVec2.new(left_start.x, left_start.y), Imgui.ImVec2.new(left_end.x, left_end.y), Imgui.IM_COL32(255, 255, 0, 255), 1.0)
-                draw_list:AddLine(Imgui.ImVec2.new(right_start.x, right_start.y), Imgui.ImVec2.new(right_end.x, right_end.y), Imgui.IM_COL32(255, 255, 0, 255), 1.0)
+                draw_list:AddLine(Imgui.Imvec2(left_start.x, left_start.y), Imgui.Imvec2(left_end.x, left_end.y), Imgui.IM_COL32(255, 255, 0, 255), 1.0)
+                draw_list:AddLine(Imgui.Imvec2(right_start.x, right_start.y), Imgui.Imvec2(right_end.x, right_end.y), Imgui.IM_COL32(255, 255, 0, 255), 1.0)
             end
 
             -- radius
             do
-                draw_list:AddCircle(Imgui.ImVec2.new(origin.x, origin.y), mob.radius, Imgui.IM_COL32(255, 255, 0, 255), 0, 1.0)
+                draw_list:AddCircle(Imgui.Imvec2(origin.x, origin.y), mob.radius, Imgui.IM_COL32(255, 255, 0, 255), 0, 1.0)
             end
         end
 
@@ -589,20 +589,20 @@ function render_imgui(engine, game)
         do
             debug_draw_mob(game_state.lion.mob)
 
-            local origin = Glm.vec2.new(game_state.lion.mob.position.x, engine.window_rect.size.y - game_state.lion.mob.position.y)
+            local origin = Glm.vec2(game_state.lion.mob.position.x, engine.window_rect.size.y - game_state.lion.mob.position.y)
 
             local ss = string.format("energy: %.0f", game_state.lion.energy)
-            draw_list:AddText(Imgui.ImVec2.new(origin.x, origin.y + 32), Imgui.IM_COL32(255, 0, 0, 255), ss)
+            draw_list:AddText(Imgui.Imvec2(origin.x, origin.y + 32), Imgui.IM_COL32(255, 0, 0, 255), ss)
         end
 
         -- food
-        draw_list:AddText(Imgui.ImVec2.new(game_state.food.position.x, engine.window_rect.size.y - game_state.food.position.y + 8), Imgui.IM_COL32(255, 255, 0, 255), "food")
+        draw_list:AddText(Imgui.Imvec2(game_state.food.position.x, engine.window_rect.size.y - game_state.food.position.y + 8), Imgui.IM_COL32(255, 255, 0, 255), "food")
     end
 
     -- obstacles
     for _, obstacle in ipairs(game_state.obstacles) do
         local obstacle_color = Imgui.IM_COL32(obstacle.color.r * 255, obstacle.color.g * 255, obstacle.color.b * 255, 255)
-        local position = Imgui.ImVec2.new(obstacle.position.x, engine.window_rect.size.y - obstacle.position.y)
+        local position = Imgui.Imvec2(obstacle.position.x, engine.window_rect.size.y - obstacle.position.y)
         draw_list:AddCircle(position, obstacle.radius, obstacle_color, 0, 2.0)
     end
 
@@ -616,6 +616,6 @@ function render_imgui(engine, game)
         ss = ss .. string.format("MOUSE_LEFT: Move food\n")
         ss = ss .. string.format("Giraffes: %u\n", #game_state.giraffes)
 
-        draw_list:AddText(Imgui.ImVec2.new(8, 8), Imgui.IM_COL32(255, 255, 255, 255), ss)
+        draw_list:AddText(Imgui.Imvec2(8, 8), Imgui.IM_COL32(255, 255, 255, 255), ss)
     end
 end
