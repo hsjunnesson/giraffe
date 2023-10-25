@@ -107,7 +107,12 @@
     "random": "cpp",
     "*.inc": "cpp",
     "cassert": "cpp",
-    "variant": "cpp"
+    "variant": "cpp",
+    "any": "cpp",
+    "filesystem": "cpp",
+    "ranges": "cpp",
+    "shared_mutex": "cpp",
+    "span": "cpp"
   },
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
   "cmake.debugConfig": {
