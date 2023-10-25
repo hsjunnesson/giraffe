@@ -1,5 +1,7 @@
 #include "if_game.h"
 
+#if defined(HAS_LUA) || defined(HAS_LUAJIT)
+
 #include "game.h"
 #include "temp_allocator.h"
 #include "string_stream.h"
@@ -29,6 +31,9 @@
 #include <inttypes.h>
 
 extern "C" {
+#if defined(HAS_LUAJIT)
+#include <luajit.h>
+#endif
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
@@ -37,9 +42,6 @@ extern "C" {
 #define SOL_ALL_SAFETIES_ON 1
 #include <sol/sol.hpp>
 
-#if defined(HAS_LUA) || defined(HAS_LUAJIT)
-
-#include <Superluminal/PerformanceAPI.h>
 
 namespace {
 lua_State *L = nullptr;
@@ -553,8 +555,6 @@ void initialize() {
     log_info("Initializing lua");
 
     L = luaL_newstate();
-    luaopen_base(L);
-    luaopen_os(L);
     luaL_openlibs(L);
 
     lua_pushcfunction(L, my_print);

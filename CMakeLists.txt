@@ -15,10 +15,10 @@ set(LIVE_PP False)
 set(SUPERLUMINAL True)
 
 # Compile for Lua 5.1
-set(HAS_LUA True)
+set(HAS_LUA False)
 
 # Compile for LuaJIT
-set(HAS_LUAJIT False)
+set(HAS_LUAJIT True)
 
 if (HAS_LUA AND HAS_LUAJIT)
     message(FATAL_ERROR "Can't compile with both HAS_LUA and HAS_LUAJIT")
@@ -45,10 +45,7 @@ FetchContent_Declare(
     BitSquidFoundation
     GIT_REPOSITORY https://github.com/hsjunnesson/bitsquid-foundation.git
 )
-
-if (NOT bitsquidfoundation_POPULATED)
-    FetchContent_MakeAvailable(BitSquidFoundation)
-endif()
+FetchContent_MakeAvailable(BitSquidFoundation)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/chocolate")
 
@@ -68,64 +65,6 @@ if (HAS_LUA OR HAS_LUAJIT)
     list(FILTER SRC_giraffe EXCLUDE REGEX "src/game_state_playing.cpp")
 endif()
 
-if (HAS_LUA)
-set(SRC_LUA
-    "lua-5.1.5/src/lapi.c"
-    "lua-5.1.5/src/lauxlib.c"
-    "lua-5.1.5/src/lbaselib.c"
-    "lua-5.1.5/src/lcode.c"
-    "lua-5.1.5/src/ldblib.c"
-    "lua-5.1.5/src/ldebug.c"
-    "lua-5.1.5/src/ldo.c"
-    "lua-5.1.5/src/ldump.c"
-    "lua-5.1.5/src/lfunc.c"
-    "lua-5.1.5/src/lgc.c"
-    "lua-5.1.5/src/linit.c"
-    "lua-5.1.5/src/liolib.c"
-    "lua-5.1.5/src/llex.c"
-    "lua-5.1.5/src/lmathlib.c"
-    "lua-5.1.5/src/lmem.c"
-    "lua-5.1.5/src/loadlib.c"
-    "lua-5.1.5/src/lobject.c"
-    "lua-5.1.5/src/lopcodes.c"
-    "lua-5.1.5/src/loslib.c"
-    "lua-5.1.5/src/lparser.c"
-    "lua-5.1.5/src/lstate.c"
-    "lua-5.1.5/src/lstring.c"
-    "lua-5.1.5/src/lstrlib.c"
-    "lua-5.1.5/src/ltable.c"
-    "lua-5.1.5/src/ltablib.c"
-    "lua-5.1.5/src/ltm.c"
-    "lua-5.1.5/src/lundump.c"
-    "lua-5.1.5/src/lvm.c"
-    "lua-5.1.5/src/lzio.c"
-    "lua-5.1.5/src/print.c"
-    "lua-5.1.5/src/lapi.h"
-    "lua-5.1.5/src/lauxlib.h"
-    "lua-5.1.5/src/lcode.h"
-    "lua-5.1.5/src/ldebug.h"
-    "lua-5.1.5/src/ldo.h"
-    "lua-5.1.5/src/lfunc.h"
-    "lua-5.1.5/src/lgc.h"
-    "lua-5.1.5/src/llex.h"
-    "lua-5.1.5/src/llimits.h"
-    "lua-5.1.5/src/lmem.h"
-    "lua-5.1.5/src/lobject.h"
-    "lua-5.1.5/src/lopcodes.h"
-    "lua-5.1.5/src/lparser.h"
-    "lua-5.1.5/src/lstate.h"
-    "lua-5.1.5/src/lstring.h"
-    "lua-5.1.5/src/ltable.h"
-    "lua-5.1.5/src/ltm.h"
-    "lua-5.1.5/src/lua.h"
-    "lua-5.1.5/src/luaconf.h"
-    "lua-5.1.5/src/lualib.h"
-    "lua-5.1.5/src/lundump.h"
-    "lua-5.1.5/src/lvm.h"
-    "lua-5.1.5/src/lzio.h"
-)
-endif()
-
 # Create executable
 add_executable(${PROJECT_NAME}
     ${SRC_giraffe}
@@ -141,33 +80,90 @@ if (HAS_LUA OR HAS_LUAJIT)
 endif()
 
 if (HAS_LUA)
+    set(SRC_LUA
+        "lua-5.1.5/src/lapi.c"
+        "lua-5.1.5/src/lauxlib.c"
+        "lua-5.1.5/src/lbaselib.c"
+        "lua-5.1.5/src/lcode.c"
+        "lua-5.1.5/src/ldblib.c"
+        "lua-5.1.5/src/ldebug.c"
+        "lua-5.1.5/src/ldo.c"
+        "lua-5.1.5/src/ldump.c"
+        "lua-5.1.5/src/lfunc.c"
+        "lua-5.1.5/src/lgc.c"
+        "lua-5.1.5/src/linit.c"
+        "lua-5.1.5/src/liolib.c"
+        "lua-5.1.5/src/llex.c"
+        "lua-5.1.5/src/lmathlib.c"
+        "lua-5.1.5/src/lmem.c"
+        "lua-5.1.5/src/loadlib.c"
+        "lua-5.1.5/src/lobject.c"
+        "lua-5.1.5/src/lopcodes.c"
+        "lua-5.1.5/src/loslib.c"
+        "lua-5.1.5/src/lparser.c"
+        "lua-5.1.5/src/lstate.c"
+        "lua-5.1.5/src/lstring.c"
+        "lua-5.1.5/src/lstrlib.c"
+        "lua-5.1.5/src/ltable.c"
+        "lua-5.1.5/src/ltablib.c"
+        "lua-5.1.5/src/ltm.c"
+        "lua-5.1.5/src/lundump.c"
+        "lua-5.1.5/src/lvm.c"
+        "lua-5.1.5/src/lzio.c"
+        "lua-5.1.5/src/print.c"
+        "lua-5.1.5/src/lapi.h"
+        "lua-5.1.5/src/lauxlib.h"
+        "lua-5.1.5/src/lcode.h"
+        "lua-5.1.5/src/ldebug.h"
+        "lua-5.1.5/src/ldo.h"
+        "lua-5.1.5/src/lfunc.h"
+        "lua-5.1.5/src/lgc.h"
+        "lua-5.1.5/src/llex.h"
+        "lua-5.1.5/src/llimits.h"
+        "lua-5.1.5/src/lmem.h"
+        "lua-5.1.5/src/lobject.h"
+        "lua-5.1.5/src/lopcodes.h"
+        "lua-5.1.5/src/lparser.h"
+        "lua-5.1.5/src/lstate.h"
+        "lua-5.1.5/src/lstring.h"
+        "lua-5.1.5/src/ltable.h"
+        "lua-5.1.5/src/ltm.h"
+        "lua-5.1.5/src/lua.h"
+        "lua-5.1.5/src/luaconf.h"
+        "lua-5.1.5/src/lualib.h"
+        "lua-5.1.5/src/lundump.h"
+        "lua-5.1.5/src/lvm.h"
+        "lua-5.1.5/src/lzio.h"
+    )
     target_sources(${PROJECT_NAME} PRIVATE ${SRC_LUA})
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA)
     include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/lua-5.1.5/src)
 endif()
 
+target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)
 
-# Includes
+
+# Third party
 
 if (SUPERLUMINAL)
     include_directories(SYSTEM ${SuperluminalAPI_INCLUDE_DIRS})
+    target_link_libraries(${PROJECT_NAME} PRIVATE SuperluminalAPI)
 endif()
 
 if (LIVE_PP)
     include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/LivePP/API/x64)
 endif()
 
-
-# Linked libraries
-
-target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)
-
 if (HAS_LUA OR HAS_LUAJIT)
     target_link_libraries(${PROJECT_NAME} PRIVATE sol2)
 endif()
 
-if (SUPERLUMINAL)
-    target_link_libraries(${PROJECT_NAME} PRIVATE SuperluminalAPI)
+if (HAS_LUAJIT)
+    find_package(PkgConfig REQUIRED)  
+    pkg_check_modules(LuaJIT REQUIRED IMPORTED_TARGET luajit)
+    target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::LuaJIT)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUAJIT)
+    include_directories(SYSTEM ${LuaJIT_INCLUDE_DIRS})
 endif()
 
 
