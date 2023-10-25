@@ -76,6 +76,7 @@ if (HAS_LUA OR HAS_LUAJIT)
         "src/if_game.cpp"
         "src/if_glm.cpp"
         "src/if_math.cpp"
+        "src/if_engine.cpp"
     )
 
     target_sources(${PROJECT_NAME} PRIVATE ${SRC_interface})

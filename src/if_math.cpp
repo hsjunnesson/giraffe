@@ -21,6 +21,34 @@ extern "C" {
 
 namespace lua {
 
+int push_vector2f(lua_State *L, math::Vector2f &vec) {
+    lua_newtable(L);
+    lua_pushnumber(L, vec.x);
+    lua_setfield(L, -2, "x");
+    lua_pushnumber(L, vec.y);
+    lua_setfield(L, -2, "y");
+    return 1;
+}
+
+int push_vector2(lua_State *L, math::Vector2 &vec) {
+    lua_newtable(L);
+    lua_pushinteger(L, vec.x);
+    lua_setfield(L, -2, "x");
+    lua_pushinteger(L, vec.y);
+    lua_setfield(L, -2, "y");
+    return 1;
+}
+
+int push_rect(lua_State *L, math::Rect &rect) {
+    lua_newtable(L);
+    push_vector2(L, rect.origin);
+    lua_setfield(L, -2, "origin");
+    push_vector2(L, rect.size);
+    lua_setfield(L, -2, "size");
+    luaL_setmetatable(L, RECT_METATABLE);
+    return 1;
+}
+
 int matrix4f_from_transform(lua_State* L) {
     glm::mat4* matrix = static_cast<glm::mat4*>(luaL_checkudata(L, 1, MAT4_METATABLE));
     math::Matrix4f *matrix_results = static_cast<math::Matrix4f *>(lua_newuserdata(L, sizeof(math::Matrix4f)));

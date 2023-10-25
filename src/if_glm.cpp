@@ -23,7 +23,7 @@ extern "C" {
 namespace lua {
 
 // Constructors for glm::vec2
-int glm_vec2_new(lua_State* L) {
+static int glm_vec2_new(lua_State* L) {
     int arg_count = lua_gettop(L);
     if (arg_count == 2) {
         float x = luaL_checknumber(L, 1);
@@ -40,7 +40,7 @@ int glm_vec2_new(lua_State* L) {
     return 1;
 }
 
-int glm_vec2_tostring(lua_State* L) {
+static int glm_vec2_tostring(lua_State* L) {
     glm::vec2* vec = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     char buffer[100];
     snprintf(buffer, sizeof(buffer), "vec2(%f, %f)", vec->x, vec->y);
@@ -48,20 +48,20 @@ int glm_vec2_tostring(lua_State* L) {
     return 1;
 }
 
-int glm_vec2_getx(lua_State* L) {
+static int glm_vec2_getx(lua_State* L) {
     glm::vec2* vec = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     lua_pushnumber(L, vec->x);
     return 1;
 }
 
-int glm_vec2_gety(lua_State* L) {
+static int glm_vec2_gety(lua_State* L) {
     glm::vec2* vec = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     lua_pushnumber(L, vec->y);
     return 1;
 }
 
 // Index function for vec2
-int glm_vec2_index(lua_State* L) {
+static int glm_vec2_index(lua_State* L) {
     const char* key = luaL_checkstring(L, 2);
     if (strcmp(key, "x") == 0) {
         return glm_vec2_getx(L);
@@ -71,7 +71,7 @@ int glm_vec2_index(lua_State* L) {
     return 0;  // Key doesn't exist
 }
 
-int glm_vec2_add(lua_State* L) {
+static int glm_vec2_add(lua_State* L) {
     glm::vec2* vec1 = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     glm::vec2* vec2 = static_cast<glm::vec2*>(luaL_checkudata(L, 2, VEC2_METATABLE));
     
@@ -85,7 +85,7 @@ int glm_vec2_add(lua_State* L) {
     return 1;
 }
 
-int glm_vec2_sub(lua_State* L) {
+static int glm_vec2_sub(lua_State* L) {
     glm::vec2* vec1 = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     glm::vec2* vec2 = static_cast<glm::vec2*>(luaL_checkudata(L, 2, VEC2_METATABLE));
 
@@ -99,7 +99,7 @@ int glm_vec2_sub(lua_State* L) {
     return 1;
 }
 
-int glm_vec2_mul(lua_State* L) {
+static int glm_vec2_mul(lua_State* L) {
     glm::vec2* vec = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     
     if (lua_isnumber(L, 2)) {
@@ -123,7 +123,7 @@ int glm_vec2_mul(lua_State* L) {
     return 1;
 }
 
-int glm_vec2_div(lua_State* L) {
+static int glm_vec2_div(lua_State* L) {
     glm::vec2* vec = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     float scalar = luaL_checknumber(L, 2);
 
@@ -178,7 +178,7 @@ static int glm_vec3_getz(lua_State *L) {
 }
 
 // Index function for vec3
-int glm_vec3_index(lua_State* L) {
+static int glm_vec3_index(lua_State* L) {
     const char* key = luaL_checkstring(L, 2);
     if (strcmp(key, "x") == 0) {
         return glm_vec3_getx(L);
@@ -202,7 +202,7 @@ static int glm_vec3_tostring(lua_State *L) {
 }
 
 // Constructors for glm::mat4
-int glm_mat4_new(lua_State* L) {
+static int glm_mat4_new(lua_State* L) {
     int arg_count = lua_gettop(L);
     if (arg_count == 1) {
         float f = luaL_checknumber(L, 1);
@@ -218,7 +218,7 @@ int glm_mat4_new(lua_State* L) {
     return 1;
 }
 
-int glm_mat4_tostring(lua_State* L) {
+static int glm_mat4_tostring(lua_State* L) {
     glm::mat4* mat4= static_cast<glm::mat4*>(luaL_checkudata(L, 1, MAT4_METATABLE));
     char buffer[100];
     snprintf(buffer, sizeof(buffer), "mat4(...)");
@@ -226,7 +226,7 @@ int glm_mat4_tostring(lua_State* L) {
     return 1;
 }
 
-int glm_ray_circle_intersection(lua_State* L) {
+static int glm_ray_circle_intersection(lua_State* L) {
     glm::vec2* ray_origin = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     glm::vec2* ray_direction = static_cast<glm::vec2*>(luaL_checkudata(L, 2, VEC2_METATABLE));
     glm::vec2* circle_center = static_cast<glm::vec2*>(luaL_checkudata(L, 3, VEC2_METATABLE));
@@ -247,7 +247,7 @@ int glm_ray_circle_intersection(lua_State* L) {
     return 1;  // Just one return value: boolean
 }
 
-int glm_ray_line_intersection(lua_State* L) {
+static int glm_ray_line_intersection(lua_State* L) {
     glm::vec2* ray_origin = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     glm::vec2* ray_direction = static_cast<glm::vec2*>(luaL_checkudata(L, 2, VEC2_METATABLE));
     glm::vec2* p1 = static_cast<glm::vec2*>(luaL_checkudata(L, 3, VEC2_METATABLE));
@@ -268,7 +268,7 @@ int glm_ray_line_intersection(lua_State* L) {
     return 1;  // Just one return value: boolean
 }
 
-int glm_truncate(lua_State *L) {
+static int glm_truncate(lua_State *L) {
     glm::vec2* vector = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     float max_length = luaL_checknumber(L, 2);
 
@@ -282,7 +282,7 @@ int glm_truncate(lua_State *L) {
     return 1;
 }
 
-int glm_normalize(lua_State *L) {
+static int glm_normalize(lua_State *L) {
     glm::vec2* vector = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     glm::vec2 result = glm::normalize(*vector);
 
@@ -294,21 +294,21 @@ int glm_normalize(lua_State *L) {
     return 1;
 }
 
-int glm_length(lua_State *L) {
+static int glm_length(lua_State *L) {
     glm::vec2* vector = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     float result = glm::length(*vector);
     lua_pushnumber(L, result);
     return 1;
 }
 
-int glm_length2(lua_State *L) {
+static int glm_length2(lua_State *L) {
     glm::vec2* vector = static_cast<glm::vec2*>(luaL_checkudata(L, 1, VEC2_METATABLE));
     float result = glm::length2(*vector);
     lua_pushnumber(L, result);
     return 1;
 }
 
-int glm_translate(lua_State *L) {
+static int glm_translate(lua_State *L) {
     glm::mat4* matrix = static_cast<glm::mat4*>(luaL_checkudata(L, 1, MAT4_METATABLE));
     glm::vec3* vector = static_cast<glm::vec3*>(luaL_checkudata(L, 2, VEC3_METATABLE));
     
@@ -322,7 +322,7 @@ int glm_translate(lua_State *L) {
     return 1;
 }
 
-int glm_scale(lua_State *L) {
+static int glm_scale(lua_State *L) {
     glm::mat4* matrix = static_cast<glm::mat4*>(luaL_checkudata(L, 1, MAT4_METATABLE));
     glm::vec3* vector = static_cast<glm::vec3*>(luaL_checkudata(L, 2, VEC3_METATABLE));
     
@@ -335,15 +335,6 @@ int glm_scale(lua_State *L) {
 
     return 1;
 }
-
-//int glm_to_matrix4f(lua_State *L) {
-//    glm::mat4* matrix = static_cast<glm::mat4*>(luaL_checkudata(L, 1, MAT4_METATABLE));
-//    math::Matrix4f m = math::Matrix4f(glm::value_ptr(*matrix));
-//    math::Matrix4f *m_res = static_cast<math::Matrix4f*>(lua_newuserdata(L, sizeof(math::Matrix4f)));
-//    *m_res = m;
-//    
-//    return 1;
-//}
 
 void init_glm_module(lua_State *L) {
     // glm::vec2
@@ -410,7 +401,7 @@ void init_glm_module(lua_State *L) {
         lua_pop(L, 1);  // Pop the metatable off the stack
     }
 
-    // Create a table for 'Glm' and add vec2 constructor
+    // Create a table for 'Glm'
     lua_getglobal(L, "Glm");
     if (lua_isnil(L, -1)) {
         lua_pop(L, 1);
