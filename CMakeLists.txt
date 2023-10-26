@@ -166,7 +166,11 @@ if (HAS_LUAJIT)
     pkg_check_modules(LuaJIT REQUIRED IMPORTED_TARGET luajit)
     target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::LuaJIT)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUAJIT)
-    include_directories(SYSTEM ${LuaJIT_INCLUDE_DIRS})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${LuaJIT_INCLUDE_DIRS})
+
+    file(GLOB LUAJIT_HEADERS "${LuaJIT_INCLUDE_DIRS}/*.h")
+    source_group("LuaJIT" FILES ${LUAJIT_HEADERS})
+    target_sources(${PROJECT_NAME} PRIVATE ${LUAJIT_HEADERS})
 endif()
 
 
