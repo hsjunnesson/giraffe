@@ -49,6 +49,30 @@ int push_rect(lua_State *L, math::Rect &rect) {
     return 1;
 }
 
+int push_color4f(lua_State *L, math::Color4f color) {
+    lua_newtable(L);
+    lua_pushnumber(L, color.r);
+    lua_setfield(L, -2, "r");
+    lua_pushnumber(L, color.g);
+    lua_setfield(L, -2, "g");
+    lua_pushnumber(L, color.b);
+    lua_setfield(L, -2, "b");
+    lua_pushnumber(L, color.a);
+    lua_setfield(L, -2, "a");
+    luaL_setmetatable(L, COLOR4F_METATABLE);
+    return 1;
+}
+
+math::Color4f get_color4f(lua_State *L, int index) {
+    math::Color4f *color4f = static_cast<math::Color4f*>(luaL_checkudata(L, index, COLOR4F_METATABLE));
+    return *color4f;
+}
+
+math::Matrix4f get_matrix4f(lua_State *L, int index) {
+    math::Matrix4f *matrix4f = static_cast<math::Matrix4f*>(luaL_checkudata(L, index, MATRIX4F_METATABLE));
+    return *matrix4f;
+}
+
 int matrix4f_from_transform(lua_State* L) {
     glm::mat4* matrix = static_cast<glm::mat4*>(luaL_checkudata(L, 1, MAT4_METATABLE));
     math::Matrix4f *matrix_results = static_cast<math::Matrix4f *>(lua_newuserdata(L, sizeof(math::Matrix4f)));

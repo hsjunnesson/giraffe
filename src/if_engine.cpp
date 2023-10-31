@@ -1,7 +1,5 @@
 #if defined(HAS_LUA) || defined(HAS_LUAJIT)
 
-#include "if_game.h"
-
 extern "C" {
 #if defined(HAS_LUAJIT)
 #include <luajit.h>
@@ -11,8 +9,8 @@ extern "C" {
 #include <lualib.h>
 }
 
-#define SOL_ALL_SAFETIES_ON 1
-#include <sol/sol.hpp>
+#include "if_game.h"
+#include "if_util.inl"
 
 #include "engine/math.inl"
 #include "engine/color.inl"
@@ -28,7 +26,7 @@ int push_engine(lua_State *L, engine::Engine &engine) {
     return 0;
 }
 
-static int push_atlas_frame(lua_State *L, engine::AtlasFrame atlas_frame) {
+int push_atlas_frame(lua_State *L, engine::AtlasFrame atlas_frame) {
     lua_newtable(L);
     push_vector2f(L, atlas_frame.pivot);
     lua_setfield(L, -2, "pivot");
@@ -47,11 +45,8 @@ int push_sprite(lua_State *L, engine::Sprite sprite) {
     return 1;
 }
 
-math::Color4f get_color(lua_State *L, int index) {
-}
-
 // Index function for Engine
-static int engine_index(lua_State* L) {
+int engine_index(lua_State* L) {
     engine::Engine *engine = static_cast<engine::Engine*>(luaL_checkudata(L, 1, ENGINE_METATABLE));
 
     const char* key = luaL_checkstring(L, 2);
@@ -62,25 +57,85 @@ static int engine_index(lua_State* L) {
     return 0;
 }
 
-static int engine_add_sprite(lua_State *L) {
+int engine_add_sprite(lua_State *L) {
     engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
     const char *sprite_name = luaL_checkstring(L, 2);
     math::Color4f color = engine::color::white;
     
     if (lua_istable(L, 3)) {
-        color = get_color(L, 3);
+        color = get_color4f(L, 3);
     }
     
     engine::Sprite sprite = engine::add_sprite(**sprites, sprite_name, color);
     return push_sprite(L, sprite);
 }
 
-static int sprite_identifier(lua_State *L) {
+int engine_remove_sprite(lua_State *L) {
+    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
+    uint64_t id = get_identifier(L, 2);
+    engine::remove_sprite(**sprites, id);
+    return 0;
+}
+
+int engine_get_sprite(lua_State *L) {
+    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
+    uint64_t id = get_identifier(L, 2);
+    const engine::Sprite *sprite = engine::get_sprite(**sprites, id);
+    
+    if (sprite) {
+        push_sprite(L, *sprite);
+    } else {
+        lua_pushnil(L);
+    }
+    
+    return 1;
+}
+
+int engine_transform_sprite(lua_State *L) {
+    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
+    uint64_t id = get_identifier(L, 2);
+    math::Matrix4f transform = get_matrix4f(L, 3);
+    
+    engine::transform_sprite(**sprites, id, transform);
+    return 0;
+}
+
+int engine_color_sprite(lua_State *L) {
+    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
+    uint64_t id = get_identifier(L, 2);
+    math::Color4f color = get_color4f(L, 3);
+    
+    engine::color_sprite(**sprites, id, color);
+    return 0;
+}
+
+int engine_update_sprites(lua_State *L) {
+    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
+    float t = static_cast<float>(luaL_checknumber(L, 2));
+    float dt = static_cast<float>(luaL_checknumber(L, 3));
+    engine::update_sprites(**sprites, t, dt);
+    return 0;
+}
+
+int engine_commit_sprites(lua_State *L) {
+    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
+    engine::commit_sprites(**sprites);
+    return 0;
+}
+
+int engine_render_sprites(lua_State *L) {
+    engine::Engine **engine = static_cast<engine::Engine **>(luaL_checkudata(L, 1, ENGINE_METATABLE));
+    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 2, SPRITES_METATABLE));
+    engine::render_sprites(**engine, **sprites);
+    return 0;
+}
+
+int sprite_identifier(lua_State *L) {
     engine::Sprite *sprite = static_cast<engine::Sprite *>(luaL_checkudata(L, 1, SPRITE_METATABLE));
     return push_identifier(L, sprite->id);
 }
 
-static int sprite_index(lua_State *L) {
+int sprite_index(lua_State *L) {
     engine::Sprite *sprite= static_cast<engine::Sprite*>(luaL_checkudata(L, 1, SPRITE_METATABLE));
 
     const char *key = luaL_checkstring(L, 2);
@@ -91,7 +146,7 @@ static int sprite_index(lua_State *L) {
     return 0;
 }
 
-static int sprites_index(lua_State *L) {
+int sprites_index(lua_State *L) {
     engine::Sprites *sprites = static_cast<engine::Sprites*>(luaL_checkudata(L, 1, SPRITES_METATABLE));
 
     const char *key = luaL_checkstring(L, 2);
@@ -104,11 +159,31 @@ static int sprites_index(lua_State *L) {
     return 0;
 }
 
+int atlasframe_index(lua_State *L) {
+    engine::AtlasFrame *atlas_frame = static_cast<engine::AtlasFrame *>(luaL_checkudata(L, 1, ATLASFRAME_METATABLE));
+
+    const char *key = luaL_checkstring(L, 2);
+    if (strcmp(key, "pivot") == 0) {
+        return push_vector2f(L, atlas_frame->pivot);
+    } else if (strcmp(key, "rect") == 0) {
+        return push_rect(L, atlas_frame->rect);
+    }
+    
+    return 0;
+}
+
 void init_engine_module(lua_State *L) {
+    // Create a table for 'Engine'
+    lua_getglobal(L, "Engine");
+    if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+    }
+
     // engine.h
     {
         luaL_newmetatable(L, ENGINE_METATABLE);
-        
+
         lua_pushstring(L, "__index");
         lua_pushcfunction(L, engine_index);
         lua_settable(L, -3);
@@ -137,50 +212,56 @@ void init_engine_module(lua_State *L) {
         lua_settable(L, -3);
         
         lua_pop(L, 1);
+        
+        lua_pushcfunction(L, engine_add_sprite);
+        lua_setfield(L, -2, "add_sprite");
+    
+        lua_pushcfunction(L, engine_remove_sprite);
+        lua_setfield(L, -2, "remove_sprite");
+    
+        lua_pushcfunction(L, engine_get_sprite);
+        lua_setfield(L, -2, "get_sprite");
+    
+        lua_pushcfunction(L, engine_transform_sprite);
+        lua_setfield(L, -2, "transform_sprite");
+    
+        lua_pushcfunction(L, engine_color_sprite);
+        lua_setfield(L, -2, "color_sprite");
+    
+        lua_pushcfunction(L, engine_update_sprites);
+        lua_setfield(L, -2, "update_sprites");
+    
+        lua_pushcfunction(L, engine_commit_sprites);
+        lua_setfield(L, -2, "commit_sprites");
+    
+        lua_pushcfunction(L, engine_render_sprites);
+        lua_setfield(L, -2, "render_sprites");
     }
 
-//    {
-//        sol::state_view lua(L);
-//        sol::table engine = lua["Engine"].get_or_create < sol::table > ();
-//    
-//        // color.inl
-//        {
-//            sol::table color = engine["Color"].get_or_create < sol::table > ();
-//            color["black"] = engine::color::black;
-//            color["white"] = engine::color::white;
-//            color["red"] = engine::color::red;
-//            color["green"] = engine::color::green;
-//            color["blue"] = engine::color::blue;
-//        
-//            sol::table pico8 = color["Pico8"].get_or_create < sol::table > ();
-//            pico8["black"] = engine::color::pico8::black;
-//            pico8["dark_blue"] = engine::color::pico8::dark_blue;
-//            pico8["dark_purple"] = engine::color::pico8::dark_purple;
-//            pico8["dark_green"] = engine::color::pico8::dark_green;
-//            pico8["brown"] = engine::color::pico8::brown;
-//            pico8["dark_gray"] = engine::color::pico8::dark_gray;
-//            pico8["light_gray"] = engine::color::pico8::light_gray;
-//            pico8["white"] = engine::color::pico8::white;
-//            pico8["red"] = engine::color::pico8::red;
-//            pico8["orange"] = engine::color::pico8::orange;
-//            pico8["yellow"] = engine::color::pico8::yellow;
-//            pico8["green"] = engine::color::pico8::green;
-//            pico8["blue"] = engine::color::pico8::blue;
-//            pico8["indigo"] = engine::color::pico8::indigo;
-//            pico8["pink"] = engine::color::pico8::pink;
-//            pico8["peach"] = engine::color::pico8::peach;
-//        }
-//        
-//        // atlas.h
-//        {
-//            engine.new_usertype < engine::AtlasFrame > ("AtlasFrame",
-//                "pivot", &engine::AtlasFrame::pivot,
-//                "rect", &engine::AtlasFrame::rect
-//            );
-//        
-//            engine["atlas_frame"] = engine::atlas_frame;
-//        }
-//        
+    // atlas.h
+    {
+        luaL_newmetatable(L, ATLASFRAME_METATABLE);
+        
+        lua_pushstring(L, "__index");
+        lua_pushcfunction(L, atlasframe_index);
+        lua_settable(L, -3);
+
+        lua_pop(L, 1);
+    }
+    
+    // input.h
+    {
+        push_enum<engine::InputType>(L, 
+            "None", engine::InputType::None,
+            "Mouse", engine::InputType::Mouse,
+            "Key", engine::InputType::Key,
+            "Scroll", engine::InputType::Scroll,
+            nullptr);
+        lua_setfield(L, -2, "InputType");
+        
+        // TODO continue from here
+    }
+    
 //        // input.h
 //        {
 //            engine.new_enum("InputType",
@@ -258,38 +339,64 @@ void init_engine_module(lua_State *L) {
 //        };
 //    }
     
-    // Create a table for 'Engine'
-    lua_getglobal(L, "Engine");
-    if (lua_isnil(L, -1)) {
-        lua_pop(L, 1);
+    // color.inl
+    {
         lua_newtable(L);
+        
+        push_color4f(L, engine::color::black);
+        lua_setfield(L, -2, "black");
+        push_color4f(L, engine::color::white);
+        lua_setfield(L, -2, "white");
+        push_color4f(L, engine::color::red);
+        lua_setfield(L, -2, "red");
+        push_color4f(L, engine::color::green);
+        lua_setfield(L, -2, "green");
+        push_color4f(L, engine::color::blue);
+        lua_setfield(L, -2, "blue");
+        
+        lua_newtable(L);
+
+        push_color4f(L, engine::color::pico8::black);
+        lua_setfield(L, -2, "black");
+        push_color4f(L, engine::color::pico8::dark_blue);
+        lua_setfield(L, -2, "dark_blue");
+        push_color4f(L, engine::color::pico8::dark_purple);
+        lua_setfield(L, -2, "dark_purple");
+        push_color4f(L, engine::color::pico8::dark_green);
+        lua_setfield(L, -2, "dark_green");
+        push_color4f(L, engine::color::pico8::brown);
+        lua_setfield(L, -2, "brown");
+        push_color4f(L, engine::color::pico8::dark_gray);
+        lua_setfield(L, -2, "dark_gray");
+        push_color4f(L, engine::color::pico8::light_gray);
+        lua_setfield(L, -2, "light_gray");
+        push_color4f(L, engine::color::pico8::white);
+        lua_setfield(L, -2, "white");
+        push_color4f(L, engine::color::pico8::red);
+        lua_setfield(L, -2, "red");
+        push_color4f(L, engine::color::pico8::orange);
+        lua_setfield(L, -2, "orange");
+        push_color4f(L, engine::color::pico8::yellow);
+        lua_setfield(L, -2, "yellow");
+        push_color4f(L, engine::color::pico8::green);
+        lua_setfield(L, -2, "green");
+        push_color4f(L, engine::color::pico8::blue);
+        lua_setfield(L, -2, "blue");
+        push_color4f(L, engine::color::pico8::green);
+        lua_setfield(L, -2, "green");
+        push_color4f(L, engine::color::pico8::indigo);
+        lua_setfield(L, -2, "indigo");
+        push_color4f(L, engine::color::pico8::pink);
+        lua_setfield(L, -2, "pink");
+        push_color4f(L, engine::color::pico8::peach);
+        lua_setfield(L, -2, "peach");
+
+        lua_setfield(L, -2, "Pico8");
+
+        lua_setfield(L, -2, "Color");
     }
-    
-    lua_pushcfunction(L, engine_add_sprite);
-    lua_setfield(L, -2, "add_sprite");
 
-    lua_pushstring(L, "remove_sprite");
-    lua_pushcfunction(L, engine_remove_sprite);
-    lua_setfield(L, -2, "remove_sprite");
-
-    lua_pushcfunction(L, engine_get_sprite);
-    lua_setfield(L, -2, "get_sprite");
-
-    lua_pushcfunction(L, engine_transform_sprite);
-    lua_setfield(L, -2, "transform_sprite");
-
-    lua_pushcfunction(L, engine_color_sprite);
-    lua_setfield(L, -2, "color_sprite");
-
-    lua_pushcfunction(L, engine_update_sprites);
-    lua_setfield(L, -2, "update_sprites");
-
-    lua_pushcfunction(L, engine_commit_sprites);
-    lua_setfield(L, -2, "commit_sprites");
-
-    lua_pushcfunction(L, engine_render_sprites);
-    lua_setfield(L, -2, "render_sprites");
-
+    // Pop Engine table
     lua_setglobal(L, "Engine");
 }
 

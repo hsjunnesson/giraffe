@@ -2,6 +2,15 @@
 
 #if defined(HAS_LUA) || defined(HAS_LUAJIT)
 
+extern "C" {
+#if defined(HAS_LUAJIT)
+#include <luajit.h>
+#endif
+#include <lauxlib.h>
+#include <lua.h>
+#include <lualib.h>
+}
+
 #include "game.h"
 #include "temp_allocator.h"
 #include "string_stream.h"
@@ -29,15 +38,6 @@
 #include <stack>
 #include <imgui.h>
 #include <inttypes.h>
-
-extern "C" {
-#if defined(HAS_LUAJIT)
-#include <luajit.h>
-#endif
-#include <lauxlib.h>
-#include <lua.h>
-#include <lualib.h>
-}
 
 #define SOL_ALL_SAFETIES_ON 1
 #include <sol/sol.hpp>
@@ -102,9 +102,18 @@ static int my_print(lua_State *L) {
 int push_identifier(lua_State* L, uint64_t id) {
     Identifier *identifier = static_cast<lua::Identifier*>(lua_newuserdata(L, sizeof(lua::Identifier)));
     new (identifier) lua::Identifier(id);
+
+    luaL_getmetatable(L, IDENTIFIER_METATABLE);
+    lua_setmetatable(L, -2);
+
     return 1;
 }
-
+ 
+uint64_t get_identifier(lua_State *L, int index) {
+    Identifier *identifier = static_cast<Identifier *>(luaL_checkudata(L, index, IDENTIFIER_METATABLE));
+    return identifier->value;
+}
+ 
 // Run a named global function in Lua with variadic arguments.
 template<typename... Args>
 inline void fun(const char *function_name, Args&&... args) {
@@ -261,7 +270,7 @@ void initialize() {
     init_math_module(L);
     init_imgui_module(L);
 
-    int load_status = luaL_loadfile(L, "scripts/main.lua");
+    int load_status = luaL_loadfile(L, "scripts/test.lua");
     if (load_status) {
         log_fatal("Could not load scripts/main.lua: %s", lua_tostring(L, -1));
     }
