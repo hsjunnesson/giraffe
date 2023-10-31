@@ -8,8 +8,15 @@
 
 struct lua_State;
 
+namespace game {
+struct Game;
+}
+
 namespace engine {
 struct Engine;
+struct InputCommand;
+struct Sprite;
+struct Sprites;
 }
 
 namespace math {
@@ -32,6 +39,8 @@ static const char *ENGINE_METATABLE = "Engine.Engine";
 static const char *SPRITES_METATABLE = "Engine.Sprites";
 static const char *SPRITE_METATABLE = "Engine.Sprite";
 static const char *ATLASFRAME_METATABLE = "Engine.AtlasFrame";
+static const char *INPUTCOMMAND_METATABLE = "Engine.InputCommand";
+static const char *GAME_METATABLE = "Game.Game";
 static const char *IDENTIFIER_METATABLE = "Identifier";
 
 struct Identifier {
@@ -46,10 +55,14 @@ struct Identifier {
     }
 };
 
+int push_game(lua_State *L, game::Game &game);
+int push_input_command(lua_State *L, engine::InputCommand &input_command);
 int push_engine(lua_State *L, engine::Engine &engine);
 int push_vector2(lua_State *L, math::Vector2 &vec);
 int push_vector2f(lua_State *L, math::Vector2f &vec);
 int push_rect(lua_State *L, math::Rect &rect);
+int push_sprite(lua_State *L, engine::Sprite sprite);
+int push_sprites(lua_State *L, engine::Sprites *sprites);
 int push_identifier(lua_State *L, uint64_t id);
 int push_color4f(lua_State *L, math::Color4f color);
 

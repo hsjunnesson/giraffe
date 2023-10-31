@@ -15,10 +15,10 @@ set(LIVE_PP False)
 set(SUPERLUMINAL True)
 
 # Compile for Lua 5.1
-set(HAS_LUA False)
+set(HAS_LUA True)
 
 # Compile for LuaJIT
-set(HAS_LUAJIT True)
+set(HAS_LUAJIT False)
 
 if (HAS_LUA AND HAS_LUAJIT)
     message(FATAL_ERROR "Can't compile with both HAS_LUA and HAS_LUAJIT")

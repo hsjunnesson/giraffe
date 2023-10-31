@@ -50,16 +50,12 @@ int push_rect(lua_State *L, math::Rect &rect) {
 }
 
 int push_color4f(lua_State *L, math::Color4f color) {
-    lua_newtable(L);
-    lua_pushnumber(L, color.r);
-    lua_setfield(L, -2, "r");
-    lua_pushnumber(L, color.g);
-    lua_setfield(L, -2, "g");
-    lua_pushnumber(L, color.b);
-    lua_setfield(L, -2, "b");
-    lua_pushnumber(L, color.a);
-    lua_setfield(L, -2, "a");
-    luaL_setmetatable(L, COLOR4F_METATABLE);
+    math::Color4f *udata = static_cast<math::Color4f *>(lua_newuserdata(L, sizeof(math::Color4f)));
+    new (udata) math::Color4f(color);
+    
+    luaL_getmetatable(L, COLOR4F_METATABLE);
+    lua_setmetatable(L, -2);
+
     return 1;
 }
 

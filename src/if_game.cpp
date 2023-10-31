@@ -99,6 +99,28 @@ static int my_print(lua_State *L) {
     return 0;
 }
 
+int push_game(lua_State *L, game::Game &game) {
+    game::Game **udata = static_cast<game::Game **>(lua_newuserdata(L, sizeof(game::Game *)));
+    *udata = &game;
+
+    luaL_getmetatable(L, GAME_METATABLE);
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+int game_index(lua_State* L) {
+    game::Game **udata = static_cast<game::Game**>(luaL_checkudata(L, 1, GAME_METATABLE));
+    game::Game *game = *udata;
+
+    const char *key = luaL_checkstring(L, 2);
+    if (strcmp(key, "sprites") == 0) {
+        return push_sprites(L, game->sprites);
+    }
+
+    return 0;
+}
+
 int push_identifier(lua_State* L, uint64_t id) {
     Identifier *identifier = static_cast<lua::Identifier*>(lua_newuserdata(L, sizeof(lua::Identifier)));
     new (identifier) lua::Identifier(id);
@@ -162,41 +184,63 @@ void init_utilities(lua_State *L) {
 
 // Create the Game module and export all functions, types, and enums that's used in this game.
 void init_game_module(lua_State *L) {
-    sol::state_view lua(L);
-    sol::table game = lua["Game"].get_or_create<sol::table>();
-
-    // ActionHash
-    {
-        sol::table action_hash = game["ActionHash"].get_or_create<sol::table>();
-        action_hash["NONE"] =            Identifier(static_cast<uint64_t>(game::ActionHash::NONE));
-        action_hash["QUIT"] =            Identifier(static_cast<uint64_t>(game::ActionHash::QUIT));
-        action_hash["DEBUG_DRAW"] =      Identifier(static_cast<uint64_t>(game::ActionHash::DEBUG_DRAW));
-        action_hash["DEBUG_AVOIDANCE"] = Identifier(static_cast<uint64_t>(game::ActionHash::DEBUG_AVOIDANCE));
-        action_hash["ADD_ONE"] =         Identifier(static_cast<uint64_t>(game::ActionHash::ADD_ONE));
-        action_hash["ADD_FIVE"] =        Identifier(static_cast<uint64_t>(game::ActionHash::ADD_FIVE));
-        action_hash["ADD_TEN"] =         Identifier(static_cast<uint64_t>(game::ActionHash::ADD_TEN));
-
+    // Create a table for 'Game'
+    lua_getglobal(L, "Game");
+    if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
     }
 
-    // AppState
+    // game.h
     {
-        sol::table app_state = game["AppState"].get_or_create<sol::table>();
-        app_state["None"] =         Identifier(static_cast<uint64_t>(game::AppState::None));
-        app_state["Initializing"] = Identifier(static_cast<uint64_t>(game::AppState::Initializing));
-        app_state["Playing"] =      Identifier(static_cast<uint64_t>(game::AppState::Playing));
-        app_state["Quitting"] =     Identifier(static_cast<uint64_t>(game::AppState::Quitting));
-        app_state["Terminate"] =    Identifier(static_cast<uint64_t>(game::AppState::Terminate));
+        luaL_newmetatable(L, GAME_METATABLE);
+
+        lua_pushstring(L, "__index");
+        lua_pushcfunction(L, game_index);
+        lua_settable(L, -3);
+
+        lua_pop(L, 1);
     }
 
-    game.new_usertype<game::Game>("Game",
-        "action_binds", &game::Game::action_binds,
-        "sprites", &game::Game::sprites
-    );
 
-    game["transition"] = [](engine::Engine &engine, game::Game &game, Identifier app_state_identifier) {
-        game::AppState app_state = static_cast<game::AppState>(app_state_identifier.value);
-        game::transition(engine, &game, app_state);
-    };
+    // Pop Game table
+    lua_setglobal(L, "Game");
+
+    // sol::state_view lua(L);
+    // sol::table game = lua["Game"].get_or_create<sol::table>();
+
+    // // ActionHash
+    // {
+    //     sol::table action_hash = game["ActionHash"].get_or_create<sol::table>();
+    //     action_hash["NONE"] =            Identifier(static_cast<uint64_t>(game::ActionHash::NONE));
+    //     action_hash["QUIT"] =            Identifier(static_cast<uint64_t>(game::ActionHash::QUIT));
+    //     action_hash["DEBUG_DRAW"] =      Identifier(static_cast<uint64_t>(game::ActionHash::DEBUG_DRAW));
+    //     action_hash["DEBUG_AVOIDANCE"] = Identifier(static_cast<uint64_t>(game::ActionHash::DEBUG_AVOIDANCE));
+    //     action_hash["ADD_ONE"] =         Identifier(static_cast<uint64_t>(game::ActionHash::ADD_ONE));
+    //     action_hash["ADD_FIVE"] =        Identifier(static_cast<uint64_t>(game::ActionHash::ADD_FIVE));
+    //     action_hash["ADD_TEN"] =         Identifier(static_cast<uint64_t>(game::ActionHash::ADD_TEN));
+
+    // }
+
+    // // AppState
+    // {
+    //     sol::table app_state = game["AppState"].get_or_create<sol::table>();
+    //     app_state["None"] =         Identifier(static_cast<uint64_t>(game::AppState::None));
+    //     app_state["Initializing"] = Identifier(static_cast<uint64_t>(game::AppState::Initializing));
+    //     app_state["Playing"] =      Identifier(static_cast<uint64_t>(game::AppState::Playing));
+    //     app_state["Quitting"] =     Identifier(static_cast<uint64_t>(game::AppState::Quitting));
+    //     app_state["Terminate"] =    Identifier(static_cast<uint64_t>(game::AppState::Terminate));
+    // }
+
+    // game.new_usertype<game::Game>("Game",
+    //     "action_binds", &game::Game::action_binds,
+    //     "sprites", &game::Game::sprites
+    // );
+
+    // game["transition"] = [](engine::Engine &engine, game::Game &game, Identifier app_state_identifier) {
+    //     game::AppState app_state = static_cast<game::AppState>(app_state_identifier.value);
+    //     game::transition(engine, &game, app_state);
+    // };
 }
 
 void init_foundation_module(lua_State *L) {
@@ -270,7 +314,7 @@ void initialize() {
     init_math_module(L);
     init_imgui_module(L);
 
-    int load_status = luaL_loadfile(L, "scripts/test.lua");
+    int load_status = luaL_loadfile(L, "scripts/main.lua");
     if (load_status) {
         log_fatal("Could not load scripts/main.lua: %s", lua_tostring(L, -1));
     }
@@ -287,27 +331,66 @@ void initialize() {
 namespace game {
 
 void game_state_playing_enter(engine::Engine &engine, Game &game) {
-    lua::fun("on_enter", engine, game);
+    lua_getglobal(L, "on_enter");
+    lua::push_engine(L, engine);
+    lua::push_game(L, game);
+    if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        log_fatal("[LUA] Error in on_enter: %s", error_msg);
+    }
 }
 
 void game_state_playing_leave(engine::Engine &engine, Game &game) {
-    lua::fun("on_leave", engine, game);
+    lua_getglobal(L, "on_leave");
+    lua::push_engine(L, engine);
+    lua::push_game(L, game);
+    if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        log_fatal("[LUA] Error in on_leave: %s", error_msg);
+    }
 }
 
 void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::InputCommand &input_command) {
-    lua::fun("on_input", engine, game, input_command);
+    lua_getglobal(L, "on_input");
+    lua::push_engine(L, engine);
+    lua::push_game(L, game);
+    lua::push_input_command(L, input_command);
+    if (lua_pcall(L, 3, 0, 0) != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        log_fatal("[LUA] Error in on_input: %s", error_msg);
+    }
 }
 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
-    lua::fun("update", engine, game, t, dt);
+    lua_getglobal(L, "update");
+    lua::push_engine(L, engine);
+    lua::push_game(L, game);
+    lua_pushnumber(L, t);
+    lua_pushnumber(L, dt);
+    if (lua_pcall(L, 4, 0, 0) != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        log_fatal("[LUA] Error in update: %s", error_msg);
+    }
 }
 
 void game_state_playing_render(engine::Engine &engine, Game &game) {
-    lua::fun("render", engine, game);
+    lua_getglobal(L, "render");
+    lua::push_engine(L, engine);
+    lua::push_game(L, game);
+    if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        log_fatal("[LUA] Error in render: %s", error_msg);
+    }
 }
 
 void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
-    lua::fun("render_imgui", engine, game);
+    lua_getglobal(L, "render_imgui");
+    lua::push_engine(L, engine);
+    lua::push_game(L, game);
+    if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
+        const char *error_msg = lua_tostring(L, -1);
+        log_fatal("[LUA] Error in render_imgui: %s", error_msg);
+    }
 }
 
 } // namespace game

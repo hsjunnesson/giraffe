@@ -23,7 +23,13 @@ extern "C" {
 namespace lua {
 
 int push_engine(lua_State *L, engine::Engine &engine) {
-    return 0;
+    engine::Engine **udata = static_cast<engine::Engine **>(lua_newuserdata(L, sizeof(engine::Engine *)));
+    *udata = &engine;
+
+    luaL_getmetatable(L, ENGINE_METATABLE);
+    lua_setmetatable(L, -2);
+
+    return 1;
 }
 
 int push_atlas_frame(lua_State *L, engine::AtlasFrame atlas_frame) {
@@ -45,11 +51,21 @@ int push_sprite(lua_State *L, engine::Sprite sprite) {
     return 1;
 }
 
-// Index function for Engine
-int engine_index(lua_State* L) {
-    engine::Engine *engine = static_cast<engine::Engine*>(luaL_checkudata(L, 1, ENGINE_METATABLE));
+int push_sprites(lua_State *L, engine::Sprites *sprites) {
+    engine::Sprites **udata = static_cast<engine::Sprites **>(lua_newuserdata(L, sizeof(engine::Sprites *)));
+    *udata = sprites;
 
-    const char* key = luaL_checkstring(L, 2);
+    luaL_getmetatable(L, SPRITES_METATABLE);
+    lua_setmetatable(L, -2);
+
+    return 1;
+}
+
+int engine_index(lua_State* L) {
+    engine::Engine **udata = static_cast<engine::Engine**>(luaL_checkudata(L, 1, ENGINE_METATABLE));
+    engine::Engine *engine = *udata;
+
+    const char *key = luaL_checkstring(L, 2);
     if (strcmp(key, "window_rect") == 0) {
         return push_rect(L, engine->window_rect);
     }
@@ -170,6 +186,30 @@ int atlasframe_index(lua_State *L) {
     }
     
     return 0;
+}
+
+int input_command_index(lua_State *L) {
+    engine::InputCommand *input_command = static_cast<engine::InputCommand *>(luaL_checkudata(L, 1, INPUTCOMMAND_METATABLE));
+
+    // TODO
+    // const char *key = luaL_checkstring(L, 2);
+    // if (strcmp(key, "pivot") == 0) {
+    //     return push_vector2f(L, atlas_frame->pivot);
+    // } else if (strcmp(key, "rect") == 0) {
+    //     return push_rect(L, atlas_frame->rect);
+    // }
+    
+    return 0;
+}
+
+int push_input_command(lua_State *L, engine::InputCommand &input_command) {
+    engine::InputCommand *udata = static_cast<engine::InputCommand *>(lua_newuserdata(L, sizeof(engine::InputCommand)));
+    new (udata) engine::InputCommand(input_command);
+    
+    luaL_getmetatable(L, INPUTCOMMAND_METATABLE);
+    lua_setmetatable(L, -2);
+
+    return 1;
 }
 
 void init_engine_module(lua_State *L) {
