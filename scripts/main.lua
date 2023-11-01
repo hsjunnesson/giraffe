@@ -1,4 +1,4 @@
-local dbg = require("scripts/debugger")
+--local dbg = require("scripts/debugger")
 --local profile = require("scripts/profile")
 
 local class = require("scripts/middleclass")
@@ -42,10 +42,10 @@ local Obstacle = class("Obstacle")
 function Obstacle:initialize()
     self.position = Glm.vec2(0, 0)
     self.radius = 100
-    self.color = Math.Color4f.new(1, 1, 1, 1)
+    self.color = Math.Color4f(1, 1, 1, 1)
 end
 
-local RANDOM_DEVICE = rnd_pcg_t.new()
+local RANDOM_DEVICE = rnd_pcg_t()
 local LION_Z_LAYER = -1
 local GIRAFFE_Z_LAYER = -2
 local FOOD_Z_LAYER = -3
@@ -81,7 +81,7 @@ function on_enter(engine, game)
     if profile then
         profile.start()
     end
-    
+
     local time = os.time()
     rnd_pcg_seed(RANDOM_DEVICE, time)
 
@@ -160,7 +160,7 @@ function on_input(engine, game, input_command)
         end
 
         local action_hash = Hash.get_identifier(game.action_binds.bind_actions, bind_action_key, Game.ActionHash.NONE)
-
+        
         if action_hash == Game.ActionHash.NONE then
             return
         elseif action_hash == Game.ActionHash.QUIT then

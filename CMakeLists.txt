@@ -74,10 +74,6 @@ if (HAS_LUA OR HAS_LUAJIT)
     set(SRC_interface
         "src/if_game.h"
         "src/if_game.cpp"
-        "src/if_glm.cpp"
-        "src/if_math.cpp"
-        "src/if_engine.cpp"
-        "src/if_util.inl"
     )
 
     target_sources(${PROJECT_NAME} PRIVATE ${SRC_interface})
