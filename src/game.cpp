@@ -183,7 +183,7 @@ void transition(engine::Engine &engine, void *game_object, AppState app_state) {
         engine::init_sprites(*game->sprites, atlas_filename);
 
 #if defined(HAS_LUA) || defined(HAS_LUAJIT)
-        lua::initialize();
+        lua::initialize(game->allocator);
 #endif
 
         transition(engine, game_object, AppState::Playing);
@@ -200,6 +200,8 @@ void transition(engine::Engine &engine, void *game_object, AppState app_state) {
     }
     case AppState::Terminate: {
         log_info("Terminating");
+        
+        lua::close();
         engine::terminate(engine);
         break;
     }

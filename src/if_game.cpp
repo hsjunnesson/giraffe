@@ -12,6 +12,7 @@ extern "C" {
 }
 
 #include "game.h"
+#include "memory.h"
 #include "temp_allocator.h"
 #include "string_stream.h"
 #include "array.h"
@@ -1715,10 +1716,34 @@ void init_module(lua_State *L) {
 
 } // namespace imgui
 
-void lua::initialize() {
+static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
+    foundation::Allocator &allocator = *(static_cast<foundation::Allocator *>(ud));
+    
+    if (nsize == 0) {
+        if (ptr) {
+            allocator.deallocate(ptr);
+        }
+        
+        return nullptr;
+    }
+    
+    void *new_ptr = allocator.allocate(nsize);
+    if (!new_ptr) {
+        log_fatal("Could not allocate memory");
+    }
+
+    if (ptr) {
+        memcpy(new_ptr, ptr, std::min(osize, nsize));
+        allocator.deallocate(ptr);
+    }
+    
+    return new_ptr;
+}
+
+void lua::initialize(foundation::Allocator &allocator) {
     log_info("Initializing lua");
 
-    L = luaL_newstate();
+    L = lua_newstate(l_alloc, &allocator);
     luaL_openlibs(L);
 
     lua_pushcfunction(L, my_print);
@@ -1742,10 +1767,19 @@ void lua::initialize() {
     }
 }
 
+void lua::close() {
+    lua_close(L);
+    L = nullptr;
+}
+
 // These are the implementation of the functions declared in game.cpp so that all the gameplay implementation runs in Lua.
 namespace game {
 
 void game_state_playing_enter(engine::Engine &engine, Game &game) {
+    if (!L) {
+        return;
+    }
+    
     lua_getglobal(L, "on_enter");
     lua_engine::push_engine(L, engine);
     lua_game::push_game(L, game);
@@ -1757,6 +1791,10 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
 }
 
 void game_state_playing_leave(engine::Engine &engine, Game &game) {
+    if (!L) {
+        return;
+    }
+
     lua_getglobal(L, "on_leave");
     lua_engine::push_engine(L, engine);
     lua_game::push_game(L, game);
@@ -1767,6 +1805,10 @@ void game_state_playing_leave(engine::Engine &engine, Game &game) {
 }
 
 void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::InputCommand &input_command) {
+    if (!L) {
+        return;
+    }
+
     lua_getglobal(L, "on_input");
     lua_engine::push_engine(L, engine);
     lua_game::push_game(L, game);
@@ -1778,6 +1820,10 @@ void game_state_playing_on_input(engine::Engine &engine, Game &game, engine::Inp
 }
 
 void game_state_playing_update(engine::Engine &engine, Game &game, float t, float dt) {
+    if (!L) {
+        return;
+    }
+
     lua_getglobal(L, "update");
     lua_engine::push_engine(L, engine);
     lua_game::push_game(L, game);
@@ -1790,6 +1836,10 @@ void game_state_playing_update(engine::Engine &engine, Game &game, float t, floa
 }
 
 void game_state_playing_render(engine::Engine &engine, Game &game) {
+    if (!L) {
+        return;
+    }
+
     lua_getglobal(L, "render");
     lua_engine::push_engine(L, engine);
     lua_game::push_game(L, game);
@@ -1800,6 +1850,10 @@ void game_state_playing_render(engine::Engine &engine, Game &game) {
 }
 
 void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
+    if (!L) {
+        return;
+    }
+
     lua_getglobal(L, "render_imgui");
     lua_engine::push_engine(L, engine);
     lua_game::push_game(L, game);
