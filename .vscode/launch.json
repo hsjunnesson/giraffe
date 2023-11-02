@@ -9,31 +9,25 @@
       "name": "Debug",
       "type": "lldb",
       "program": "${workspaceFolder}/build/Debug/giraffe.exe",
-      // "setupCommands": [
-      //   {
-      //     "description": "Enable pretty-printing for gdb",
-      //     "text": "-enable-pretty-printing",
-      //     "ignoreFailures": true
-      //   }
-      // ],
       "windows": {
         "request": "launch",
         "name": "Debug",
         "program": "${workspaceFolder}/build/Debug/giraffe.exe",
       },
-      "osx": {
-        "request": "launch",
-        "name": "Debug",
-        "program": "${workspaceFolder}/build/giraffe",
-      },
-      "linux": {
-        "request": "launch",
-        "name": "Debug",
-        "program": "${workspaceFolder}/build/giraffe",
-      },
       "args": [],
       "cwd": "${workspaceFolder}",
       "internalConsoleOptions": "openOnSessionStart"
+    },
+    {
+      "name": "RelWithDebInfo",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/RelWithDebInfo/giraffe.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "console": "externalTerminal"
     }
   ]
 }

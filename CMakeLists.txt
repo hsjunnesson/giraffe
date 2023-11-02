@@ -15,7 +15,7 @@ set(LIVE_PP False)
 set(SUPERLUMINAL True)
 
 # Compile for Lua 5.1
-set(HAS_LUA True)
+set(HAS_LUA False)
 
 # Compile for LuaJIT
 set(HAS_LUAJIT False)

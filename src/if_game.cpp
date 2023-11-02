@@ -1743,7 +1743,12 @@ static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
 void lua::initialize(foundation::Allocator &allocator) {
     log_info("Initializing lua");
 
+#if defined(HAS_LUAJIT)
+    L = luaL_newstate();
+#else
     L = lua_newstate(l_alloc, &allocator);
+#endif
+
     luaL_openlibs(L);
 
     lua_pushcfunction(L, my_print);

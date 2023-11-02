@@ -96,7 +96,7 @@ struct GameState {
     , obstacles(allocator)
     , food()
     , lion()
-    , debug_draw(true)
+    , debug_draw(false)
     , debug_avoidance(false) {}
     ~GameState(){};
     DELETE_COPY_AND_MOVE(GameState)

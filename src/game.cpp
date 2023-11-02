@@ -201,7 +201,10 @@ void transition(engine::Engine &engine, void *game_object, AppState app_state) {
     case AppState::Terminate: {
         log_info("Terminating");
         
+#if defined(HAS_LUA) || defined(HAS_LUAJIT)
         lua::close();
+#endif
+
         engine::terminate(engine);
         break;
     }
