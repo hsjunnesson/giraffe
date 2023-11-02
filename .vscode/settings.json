@@ -119,6 +119,7 @@
     "cwd": "${workspaceFolder}"
   },
   "cmake.configureArgs" : [
-    "-DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake"
+    "-DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "-DLUA_VERSION=LUA51"
   ]
 }

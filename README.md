@@ -20,8 +20,10 @@ For the cmake dependencies, use something like VCPKG and install the following p
 - imgui[core,opengl3-binding,glfw-binding]
 - backward-cpp
 
+If you want to compile with Lua you specify a `LUA_VERSION` with cmake - either `LUA51` or `LUAJIT`.
+
 ```
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake -DLUA_VERSION=LUA51
 cmake --build build/
 ```
 

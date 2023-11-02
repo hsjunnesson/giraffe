@@ -1,6 +1,6 @@
 #include "if_game.h"
 
-#if defined(HAS_LUA) || defined(HAS_LUAJIT)
+#if defined(HAS_LUA)
 
 extern "C" {
 #if defined(HAS_LUAJIT)
@@ -1870,4 +1870,4 @@ void game_state_playing_render_imgui(engine::Engine &engine, Game &game) {
 
 } // namespace game
 
-#endif // HAS_LUA || HAS_LUAJIT
+#endif // HAS_LUA

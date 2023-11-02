@@ -2,7 +2,7 @@
 
 #include "memory_types.h"
 
-#if defined(HAS_LUA) || defined(HAS_LUAJIT)
+#if defined(HAS_LUA)
 
 namespace lua {
 

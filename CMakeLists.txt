@@ -14,26 +14,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(LIVE_PP False)
 set(SUPERLUMINAL True)
 
-# Compile for Lua 5.1
-set(HAS_LUA False)
-
-# Compile for LuaJIT
-set(HAS_LUAJIT False)
-
-if (HAS_LUA AND HAS_LUAJIT)
-    message(FATAL_ERROR "Can't compile with both HAS_LUA and HAS_LUAJIT")
-endif()
-
 if (SUPERLUMINAL)
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Program Files/Superluminal/Performance/API")
     find_package(SuperluminalAPI REQUIRED)
-endif()
-
-
-# Find locally installed dependencies. Tip: Use VCPKG for these.
-
-if (HAS_LUA OR HAS_LUAJIT)
-    find_package(sol2 CONFIG REQUIRED)
 endif()
 
 
@@ -61,25 +44,12 @@ set(SRC_giraffe
     "src/util.h"
 )
 
-if (HAS_LUA OR HAS_LUAJIT)
-    list(FILTER SRC_giraffe EXCLUDE REGEX "src/game_state_playing.cpp")
-endif()
+set(LUA_VERSION "LUA" CACHE STRING "Selected Lua version")
+set_property(CACHE LUA_VERSION PROPERTY STRINGS LUA51 LUAJIT LUAU)
 
-# Create executable
-add_executable(${PROJECT_NAME}
-    ${SRC_giraffe}
-)
-
-if (HAS_LUA OR HAS_LUAJIT)
-    set(SRC_interface
-        "src/if_game.h"
-        "src/if_game.cpp"
-    )
-
-    target_sources(${PROJECT_NAME} PRIVATE ${SRC_interface})
-endif()
-
-if (HAS_LUA)
+if(LUA_VERSION STREQUAL "LUA51")
+    message(STATUS "Compiling with Lua 5.1")
+    set(HAS_LUA True)
     set(SRC_LUA
         "lua-5.1.5/src/lapi.c"
         "lua-5.1.5/src/lauxlib.c"
@@ -135,9 +105,53 @@ if (HAS_LUA)
         "lua-5.1.5/src/lvm.h"
         "lua-5.1.5/src/lzio.h"
     )
+
+    list(APPEND SRC_giraffe ${SRC_LUA})
+elseif(LUA_VERSION STREQUAL "LUAJIT")
+    message(STATUS "Compiling with LuaJIT")
+    set(HAS_LUA True)
+    find_package(PkgConfig REQUIRED)  
+    pkg_check_modules(LuaJIT REQUIRED IMPORTED_TARGET luajit)
+elseif(LUA_VERSION STREQUAL "LUAU")
+    message(STATUS "Compiling with Luau")
+    set(HAS_LUA True)
+endif()
+
+if (HAS_LUA)
+    list(FILTER SRC_giraffe EXCLUDE REGEX "src/game_state_playing.cpp")
+    list(APPEND SRC_giraffe
+        "src/if_game.h"
+        "src/if_game.cpp"
+    )
+endif()
+
+# Create executable
+add_executable(${PROJECT_NAME}
+    ${SRC_giraffe}
+)
+
+if(LUA_VERSION STREQUAL "LUA51")
     target_sources(${PROJECT_NAME} PRIVATE ${SRC_LUA})
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA51)
     include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/lua-5.1.5/src)
+
+    if (MSVC)
+        source_group("Lua" FILES ${SRC_LUA})
+    endif()
+elseif(LUA_VERSION STREQUAL "LUAJIT")
+    target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::LuaJIT)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUAJIT)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${LuaJIT_INCLUDE_DIRS})
+
+    file(GLOB LUAJIT_HEADERS "${LuaJIT_INCLUDE_DIRS}/*.h")
+    target_sources(${PROJECT_NAME} PRIVATE ${LUAJIT_HEADERS})
+
+    if (MSVC)
+        source_group("LuaJIT" FILES ${LUAJIT_HEADERS})
+    endif()
+elseif(LUA_VERSION STREQUAL "LUAU")
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)
@@ -154,22 +168,6 @@ if (LIVE_PP)
     include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/LivePP/API/x64)
 endif()
 
-if (HAS_LUA OR HAS_LUAJIT)
-    target_link_libraries(${PROJECT_NAME} PRIVATE sol2)
-endif()
-
-if (HAS_LUAJIT)
-    find_package(PkgConfig REQUIRED)  
-    pkg_check_modules(LuaJIT REQUIRED IMPORTED_TARGET luajit)
-    target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::LuaJIT)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUAJIT)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${LuaJIT_INCLUDE_DIRS})
-
-    file(GLOB LUAJIT_HEADERS "${LuaJIT_INCLUDE_DIRS}/*.h")
-    source_group("LuaJIT" FILES ${LUAJIT_HEADERS})
-    target_sources(${PROJECT_NAME} PRIVATE ${LUAJIT_HEADERS})
-endif()
-
 
 # Compiler warnings & definitions
 
@@ -181,10 +179,6 @@ if (MSVC)
     set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
     target_compile_definitions(${PROJECT_NAME} PRIVATE UNICODE=1)
     target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
-
-    if (HAS_LUA)
-        source_group("lua" FILES ${SRC_LUA})
-    endif()
 
     if (LIVE_PP)
         target_compile_definitions(${PROJECT_NAME} PRIVATE LIVE_PP=1 NOMINMAX=1)
