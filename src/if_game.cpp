@@ -5,11 +5,13 @@
 extern "C" {
 #if defined(HAS_LUAJIT)
 #include <luajit.h>
+#elif defined(HAS_LUAU)
+#include <luacode.h>
 #endif
-#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
 }
+
 
 #include "game.h"
 #include "memory.h"
@@ -33,6 +35,7 @@ extern "C" {
 #include <engine/math.inl>
 #include <engine/atlas.h>
 #include <engine/color.inl>
+#include <engine/file.h>
 
 #include <tuple>
 #include <array>
@@ -49,6 +52,12 @@ lua_State *L = nullptr;
 
 using namespace foundation;
 using namespace foundation::string_stream;
+
+#if defined(HAS_LUAU)
+#define lua_pushcfunc(L, fn, debugname) lua_pushcfunction(L, (fn), debugname)
+#else
+#define lua_pushcfunc(L, fn, debugname) lua_pushcfunction(L, (fn), 0)
+#endif
 
 #if defined(HAS_LUAJIT)
 extern "C" {
@@ -200,6 +209,33 @@ int my_print(lua_State *L) {
     return 0;
 }
 
+void require(lua_State *L, const char* file) {
+#if defined(HAS_LUAU)
+	using namespace foundation::string_stream;
+	using namespace foundation::array;
+
+	TempAllocator1024 ta;
+	Buffer source(ta);
+	if (!engine::file::read(source, file)) {
+		log_fatal("Could not load %s", file);
+	}
+
+	size_t bytecode_size = 0;
+	char *bytecode = luau_compile(begin(source), size(source), NULL, &bytecode_size);
+	int result = luau_load(L, file, bytecode, bytecode_size, 0);
+
+	free(bytecode);
+
+	if (result != 0) {
+		log_fatal("Could not load bytecode from %s: %s", file, lua_tostring(L, -1));
+	}
+#else
+    int load_status = luaL_loadfile(L, file);
+    if (load_status) {
+        log_fatal("Could not load %s: %s", file, lua_tostring(L, -1));
+    }
+#endif
+}
 
 // =================================
 //        Utility functions
@@ -284,39 +320,40 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, IDENTIFIER_METATABLE);
 
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             lua_utilities::Identifier *identifier = static_cast<lua_utilities::Identifier*>(luaL_checkudata(L, 1, IDENTIFIER_METATABLE));
 
             const char *key = luaL_checkstring(L, 2);
             if (strcmp(key, "valid") == 0) {
-                lua_pushcfunction(L, [](lua_State *L) -> int {
+                lua_pushcfunc(L, [](lua_State *L) -> int {
                     Identifier id = get_identifier(L, 1);
                     lua_pushboolean(L, id.valid());
                     return 1;
-                });
+                    },
+                    "valid");
                 return 1;
             }
             
             return 0;
-        });
+        }, "Identifier __index");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__tostring");
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             lua_utilities::Identifier *identifier = static_cast<lua_utilities::Identifier*>(luaL_checkudata(L, 1, IDENTIFIER_METATABLE));
             lua_pushfstring(L, "Identifier(%llu)", identifier->value);
             return 1;
-        });
+        }, "Identifier __tostring");
         lua_settable(L, -3);
         
         lua_pushstring(L, "__eq");
-        lua_pushcfunction(L, [](lua_State *L)->int {
+        lua_pushcfunc(L, [](lua_State *L)->int {
             Identifier id1 = get_identifier(L, 1);
             Identifier id2 = get_identifier(L, 2);
             
             lua_pushboolean(L, id1.value == id2.value);
             return 1;
-        });
+        }, "Identifier __eq");
         lua_settable(L, -3);
         
         lua_pop(L, 1);
@@ -327,7 +364,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, RND_PCG_T_METATABLE);
         lua_pop(L, 1);
 
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             rnd_pcg_t *udata = static_cast<rnd_pcg_t *>(lua_newuserdata(L, sizeof(rnd_pcg_t)));
             new (udata) rnd_pcg_t();
 
@@ -335,23 +372,23 @@ void init_module(lua_State *L) {
             lua_setmetatable(L, -2);
 
             return 1;
-        });
+        }, "rnd_pcg_t");
         lua_setglobal(L, "rnd_pcg_t");
 
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             rnd_pcg_t *rnd = static_cast<rnd_pcg_t *>(luaL_checkudata(L, 1, RND_PCG_T_METATABLE));
             float result = rnd_pcg_nextf(rnd);
             lua_pushnumber(L, result);
             return 1;
-        });
+        }, "rnd_pcg_nextf");
         lua_setglobal(L, "rnd_pcg_nextf");
 
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             rnd_pcg_t *rnd = static_cast<rnd_pcg_t *>(luaL_checkudata(L, 1, RND_PCG_T_METATABLE));
             unsigned int seed = (unsigned int)luaL_checkinteger(L, 2);
             rnd_pcg_seed(rnd, seed);
             return 0;
-        });
+        }, "rnd_pcg_seed");
         lua_setglobal(L, "rnd_pcg_seed");
     }
 
@@ -367,14 +404,14 @@ void init_module(lua_State *L) {
             lua_newtable(L);
         }
         
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             foundation::Hash<uint64_t> *hash = get_hash(L, 1);
             Identifier key = get_identifier(L, 2);
             Identifier default_value = get_identifier(L, 3);
 
             const uint64_t &result = foundation::hash::get(*hash, key.value, default_value.value);
             return push_identifier(L, result);
-        });
+        }, "get_identifier");
         lua_setfield(L, -2, "get_identifier");
 
         lua_setglobal(L, "Hash");
@@ -727,31 +764,31 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, VEC2_METATABLE);
 
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, glm_vec2_index);
+        lua_pushcfunc(L, glm_vec2_index, "glm_vec2_index");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__newindex");
-        lua_pushcfunction(L, glm_vec2_newindex);
+        lua_pushcfunc(L, glm_vec2_newindex, "glm_vec2_newindex");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__tostring");
-        lua_pushcfunction(L, glm_vec2_tostring);
+        lua_pushcfunc(L, glm_vec2_tostring, "glm_vec2_tostring");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__add");
-        lua_pushcfunction(L, glm_vec2_add);
+        lua_pushcfunc(L, glm_vec2_add, "glm_vec2_add");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__sub");
-        lua_pushcfunction(L, glm_vec2_sub);
+        lua_pushcfunc(L, glm_vec2_sub, "glm_vec2_sub");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__mul");
-        lua_pushcfunction(L, glm_vec2_mul);
+        lua_pushcfunc(L, glm_vec2_mul, "glm_vec2_mul");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__div");
-        lua_pushcfunction(L, glm_vec2_div);
+        lua_pushcfunc(L, glm_vec2_div, "glm_vec2_div");
         lua_settable(L, -3);
 
         lua_pop(L, 1);  // Pop the metatable off the stack
@@ -764,12 +801,12 @@ void init_module(lua_State *L) {
     
         // Set the __index metamethod
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, glm_vec3_index);
+        lua_pushcfunc(L, glm_vec3_index, "glm_vec3_index");
         lua_settable(L, -3);
     
         // __tostring for vec3
         lua_pushstring(L, "__tostring");
-        lua_pushcfunction(L, glm_vec3_tostring);
+        lua_pushcfunc(L, glm_vec3_tostring, "glm_vec3_tostring");
         lua_settable(L, -3);
     
         lua_pop(L, 1);  // Pop the metatable off the stack
@@ -782,7 +819,7 @@ void init_module(lua_State *L) {
     
         // __tostring for mat4
         lua_pushstring(L, "__tostring");
-        lua_pushcfunction(L, glm_mat4_tostring);
+        lua_pushcfunc(L, glm_mat4_tostring, "glm_mat4_tostring");
         lua_settable(L, -3);
     
         lua_pop(L, 1);  // Pop the metatable off the stack
@@ -796,39 +833,39 @@ void init_module(lua_State *L) {
     }
 
     lua_pushstring(L, "vec2");
-    lua_pushcfunction(L, glm_vec2_new);
+    lua_pushcfunc(L, glm_vec2_new, "glm_vec2_new");
     lua_settable(L, -3);
 
     lua_pushstring(L, "vec3");
-    lua_pushcfunction(L, glm_vec3_new);
+    lua_pushcfunc(L, glm_vec3_new, "glm_vec3_new");
     lua_settable(L, -3);
 
     lua_pushstring(L, "mat4");
-    lua_pushcfunction(L, glm_mat4_new);
+    lua_pushcfunc(L, glm_mat4_new, "glm_mat4_new");
     lua_settable(L, -3);
     
-    lua_pushcfunction(L, glm_ray_circle_intersection);
+    lua_pushcfunc(L, glm_ray_circle_intersection, "glm_ray_circle_intersection");
     lua_setfield(L, -2, "ray_circle_intersection");
 
-    lua_pushcfunction(L, glm_ray_line_intersection);
+    lua_pushcfunc(L, glm_ray_line_intersection, "glm_ray_line_intersection");
     lua_setfield(L, -2, "ray_line_intersection");
 
-    lua_pushcfunction(L, glm_truncate);
+    lua_pushcfunc(L, glm_truncate, "glm_truncate");
     lua_setfield(L, -2, "truncate");
 
-    lua_pushcfunction(L, glm_normalize);
+    lua_pushcfunc(L, glm_normalize, "glm_normalize");
     lua_setfield(L, -2, "normalize");
 
-    lua_pushcfunction(L, glm_length);
+    lua_pushcfunc(L, glm_length, "glm_length");
     lua_setfield(L, -2, "length");
 
-    lua_pushcfunction(L, glm_length2);
+    lua_pushcfunc(L, glm_length2, "glm_length2");
     lua_setfield(L, -2, "length2");
 
-    lua_pushcfunction(L, glm_translate);
+    lua_pushcfunc(L, glm_translate, "glm_translate");
     lua_setfield(L, -2, "translate");
 
-    lua_pushcfunction(L, glm_scale);
+    lua_pushcfunc(L, glm_scale, "glm_scale");
     lua_setfield(L, -2, "scale");
 
    
@@ -929,7 +966,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, COLOR4F_METATABLE);
 
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             math::Color4f color = get_color4f(L, 1);
 
             const char *key = luaL_checkstring(L, 2);
@@ -948,15 +985,15 @@ void init_module(lua_State *L) {
             }
 
             return 0;
-        });
+        }, "color4f __index");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__tostring");
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             math::Color4f *color = static_cast<math::Color4f *>(luaL_checkudata(L, 1, COLOR4F_METATABLE));
             lua_pushfstring(L, "Color4f(%f, %f, %f, %f)", color->r, color->g, color->b, color->a);
             return 1;
-        });
+        }, "color4f __tostring");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -965,7 +1002,7 @@ void init_module(lua_State *L) {
         lua_pop(L, 1);
     }
 
-    lua_pushcfunction(L, [](lua_State *L) -> int {
+    lua_pushcfunc(L, [](lua_State *L) -> int {
         float r = luaL_checknumber(L, 1);
         float g = luaL_checknumber(L, 2);
         float b = luaL_checknumber(L, 3);
@@ -981,10 +1018,10 @@ void init_module(lua_State *L) {
         lua_setmetatable(L, -2);
 
         return 1;
-    });
+    }, "Color4f");
     lua_setfield(L, -2, "Color4f");
 
-    lua_pushcfunction(L, matrix4f_from_transform);
+    lua_pushcfunc(L, matrix4f_from_transform, "matrix4f_from_transform");
     lua_setfield(L, -2, "matrix4f_from_transform");
 
     lua_setglobal(L, "Math");
@@ -1168,10 +1205,10 @@ int sprite_index(lua_State *L) {
     if (strcmp(key, "atlas_frame") == 0) {
         return push_atlas_frame(L, *sprite->atlas_frame);
     } else if (strcmp(key, "identifier") == 0) {
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             engine::Sprite *sprite = static_cast<engine::Sprite*>(luaL_checkudata(L, 1, SPRITE_METATABLE));
             return lua_utilities::push_identifier(L, sprite->id);
-        });
+        }, "sprite.identifier");
         return 1;
     }
     
@@ -1345,7 +1382,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, ENGINE_METATABLE);
 
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, engine_index);
+        lua_pushcfunc(L, engine_index, "engine_index");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -1356,11 +1393,11 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, SPRITE_METATABLE);
         
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, sprite_index);
+        lua_pushcfunc(L, sprite_index, "sprite_index");
         lua_settable(L, -3);
 
         lua_pushstring(L, "identifier");
-        lua_pushcfunction(L, sprite_identifier);
+        lua_pushcfunc(L, sprite_identifier, "sprite_identifier");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -1368,33 +1405,33 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, SPRITES_METATABLE);
         
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, sprites_index);
+        lua_pushcfunc(L, sprites_index, "sprites_index");
         lua_settable(L, -3);
         
         lua_pop(L, 1);
         
-        lua_pushcfunction(L, engine_add_sprite);
+        lua_pushcfunc(L, engine_add_sprite, "engine_add_sprite");
         lua_setfield(L, -2, "add_sprite");
     
-        lua_pushcfunction(L, engine_remove_sprite);
+        lua_pushcfunc(L, engine_remove_sprite, "engine_remove_sprite");
         lua_setfield(L, -2, "remove_sprite");
     
-        lua_pushcfunction(L, engine_get_sprite);
+        lua_pushcfunc(L, engine_get_sprite, "engine_get_sprite");
         lua_setfield(L, -2, "get_sprite");
     
-        lua_pushcfunction(L, engine_transform_sprite);
+        lua_pushcfunc(L, engine_transform_sprite, "engine_transform_sprite");
         lua_setfield(L, -2, "transform_sprite");
     
-        lua_pushcfunction(L, engine_color_sprite);
+        lua_pushcfunc(L, engine_color_sprite, "engine_color_sprite");
         lua_setfield(L, -2, "color_sprite");
     
-        lua_pushcfunction(L, engine_update_sprites);
+        lua_pushcfunc(L, engine_update_sprites, "engine_update_sprites");
         lua_setfield(L, -2, "update_sprites");
     
-        lua_pushcfunction(L, engine_commit_sprites);
+        lua_pushcfunc(L, engine_commit_sprites, "engine_commit_sprites");
         lua_setfield(L, -2, "commit_sprites");
     
-        lua_pushcfunction(L, engine_render_sprites);
+        lua_pushcfunc(L, engine_render_sprites, "engine_render_sprites");
         lua_setfield(L, -2, "render_sprites");
     }
 
@@ -1403,7 +1440,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, ATLASFRAME_METATABLE);
         
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, atlasframe_index);
+        lua_pushcfunc(L, atlasframe_index, "atlasframe_index");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -1411,7 +1448,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, ATLAS_METATABLE);
         lua_pop(L, 1);
 
-        lua_pushcfunction(L, engine_atlas_frame);
+        lua_pushcfunc(L, engine_atlas_frame, "engine_atlas_frame");
         lua_setfield(L, -2, "atlas_frame");
     }
     
@@ -1420,7 +1457,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, INPUT_COMMAND_METATABLE);
        
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, input_command_index);
+        lua_pushcfunc(L, input_command_index, "input_command_index");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -1428,7 +1465,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, KEY_STATE_METATABLE);
        
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, key_state_index);
+        lua_pushcfunc(L, key_state_index, "key_state_index");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -1436,7 +1473,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, MOUSE_STATE_METATABLE);
        
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, mouse_state_index);
+        lua_pushcfunc(L, mouse_state_index, "mouse_state_index");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -1444,7 +1481,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, SCROLL_STATE_METATABLE);
        
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, scroll_state_index);
+        lua_pushcfunc(L, scroll_state_index, "scroll_state_index");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -1484,7 +1521,7 @@ void init_module(lua_State *L) {
         luaL_newmetatable(L, ACTION_BINDS_METATABLE);
 
         lua_pushstring(L, "__index");
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             engine::ActionBinds **action_binds = static_cast<engine::ActionBinds**>(luaL_checkudata(L, 1, ACTION_BINDS_METATABLE));
 
             const char *key = luaL_checkstring(L, 2);
@@ -1493,14 +1530,14 @@ void init_module(lua_State *L) {
             }
 
             return 0;
-        });
+        }, "action_binds __index");
         lua_settable(L, -3);
 
         lua_pushstring(L, "__tostring");
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             lua_pushstring(L, "ActionBinds");
             return 1;
-        });
+        }, "action_binds __tostring");
         lua_settable(L, -3);
 
         lua_pop(L, 1);
@@ -1517,27 +1554,27 @@ void init_module(lua_State *L) {
         lua_setfield(L, -2, "ActionBindsBind");
 
 
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             engine::ActionBindsBind bind = static_cast<engine::ActionBindsBind>(luaL_checkinteger(L, 1));
             const char *bind_descriptor = engine::bind_descriptor(bind);
             lua_pushstring(L, bind_descriptor);
             return 1;
-        });
+        }, "bind_descriptor");
         lua_setfield(L, -2, "bind_descriptor");
 
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             int16_t keycode = static_cast<int16_t>(luaL_checkinteger(L, 1));
             engine::ActionBindsBind bind = engine::bind_for_keycode(keycode);
             lua_pushinteger(L, static_cast<int>(bind));
             return 1;
-        });
+        }, "bind_for_keycode");
         lua_setfield(L, -2, "bind_for_keycode");
 
-        lua_pushcfunction(L, [](lua_State *L) -> int {
+        lua_pushcfunc(L, [](lua_State *L) -> int {
             engine::InputCommand *input_command = static_cast<engine::InputCommand *>(luaL_checkudata(L, 1, INPUT_COMMAND_METATABLE));
             uint64_t result = engine::action_key_for_input_command(*input_command);
             return lua_utilities::push_identifier(L, result);
-        });
+        }, "action_key_for_input_command");
         lua_setfield(L, -2, "action_key_for_input_command");
     }
     
@@ -1649,7 +1686,7 @@ void init_module(lua_State *L) {
     luaL_newmetatable(L, GAME_METATABLE);
 
     lua_pushstring(L, "__index");
-    lua_pushcfunction(L, game_index);
+    lua_pushcfunc(L, game_index, "game_index");
     lua_settable(L, -3);
 
     lua_pop(L, 1);
@@ -1690,14 +1727,14 @@ void init_module(lua_State *L) {
 
     lua_setfield(L, -2, "AppState");
 
-    lua_pushcfunction(L, [](lua_State *L) -> int {
+    lua_pushcfunc(L, [](lua_State *L) -> int {
         engine::Engine **engine = static_cast<engine::Engine**>(luaL_checkudata(L, 1, lua_engine::ENGINE_METATABLE));
         game::Game **game = static_cast<game::Game**>(luaL_checkudata(L, 2, GAME_METATABLE));
         game::AppState app_state = static_cast<game::AppState>(luaL_checkinteger(L, 3));
 
         game::transition(**engine, *game, app_state);
         return 0;
-    });
+    }, "Engine.transition");
     lua_setfield(L, -2, "transition");
 
     // Pop Game table
@@ -1741,10 +1778,10 @@ void init_module(lua_State *L) {
     luaL_newmetatable(L, DRAW_LIST_METATABLE);
 
     lua_pushstring(L, "__index");
-    lua_pushcfunction(L, [](lua_State *L) -> int {
+    lua_pushcfunc(L, [](lua_State *L) -> int {
         const char *key = luaL_checkstring(L, 2);
         if (strcmp(key, "AddLine") == 0) {
-            lua_pushcfunction(L, [](lua_State *L) -> int {
+            lua_pushcfunc(L, [](lua_State *L) -> int {
                 ImDrawList **udata = static_cast<ImDrawList**>(luaL_checkudata(L, 1, DRAW_LIST_METATABLE));
                 ImDrawList *draw_list = *udata;
                 ImVec2 p1 = get_imvec2(L, 2);
@@ -1753,10 +1790,10 @@ void init_module(lua_State *L) {
                 float thickness = luaL_checknumber(L, 5);
                 draw_list->AddLine(p1, p2, col, thickness);
                 return 0;
-            });
+            }, "AddLine");
             return 1;
         } else if (strcmp(key, "AddText") == 0) {
-            lua_pushcfunction(L, [](lua_State *L) -> int {
+            lua_pushcfunc(L, [](lua_State *L) -> int {
                 ImDrawList **udata = static_cast<ImDrawList**>(luaL_checkudata(L, 1, DRAW_LIST_METATABLE));
                 ImDrawList *draw_list = *udata;
                 ImVec2 pos = get_imvec2(L, 2);
@@ -1764,10 +1801,10 @@ void init_module(lua_State *L) {
                 const char *text = luaL_checkstring(L, 4);
                 draw_list->AddText(pos, col, text);
                 return 0;
-            });
+            }, "AddText");
             return 1;
         } else if (strcmp(key, "AddCircle") == 0) {
-            lua_pushcfunction(L, [](lua_State *L) -> int {
+            lua_pushcfunc(L, [](lua_State *L) -> int {
                 ImDrawList **udata = static_cast<ImDrawList**>(luaL_checkudata(L, 1, DRAW_LIST_METATABLE));
                 ImDrawList *draw_list = *udata;
                 ImVec2 center = get_imvec2(L, 2);
@@ -1777,12 +1814,12 @@ void init_module(lua_State *L) {
                 float thickness = luaL_checknumber(L, 6);
                 draw_list->AddCircle(center, radius, col, segments, thickness);
                 return 0;
-            });
+            }, "AddCircle");
             return 1;
         }
 
         return 0;
-    });
+    }, "DrawList __index");
     lua_settable(L, -3);
 
     lua_pop(L, 1);
@@ -1791,7 +1828,7 @@ void init_module(lua_State *L) {
     lua_pop(L, 1);
 
 
-    lua_pushcfunction(L, [](lua_State *L) -> int {
+    lua_pushcfunc(L, [](lua_State *L) -> int {
         float x = luaL_checknumber(L, 1);
         float y = luaL_checknumber(L, 2);
 
@@ -1803,10 +1840,10 @@ void init_module(lua_State *L) {
         lua_setmetatable(L, -2);
 
         return 1;
-    });
+    }, "ImVec2");
     lua_setfield(L, -2, "Imvec2");
 
-    lua_pushcfunction(L, [](lua_State *L) -> int {
+    lua_pushcfunc(L, [](lua_State *L) -> int {
         ImDrawList **udata = static_cast<ImDrawList **>(lua_newuserdata(L, sizeof(ImDrawList *)));
         *udata = ImGui::GetForegroundDrawList();
 
@@ -1814,17 +1851,17 @@ void init_module(lua_State *L) {
         lua_setmetatable(L, -2);
 
         return 1;
-    });
+    }, "ImGui.GetForegroundDrawList");
     lua_setfield(L, -2, "GetForegroundDrawList");
 
-    lua_pushcfunction(L, [](lua_State *L) -> int {
+    lua_pushcfunc(L, [](lua_State *L) -> int {
         int r = luaL_checkinteger(L, 1);
         int g = luaL_checkinteger(L, 2);
         int b = luaL_checkinteger(L, 3);
         int a = luaL_checkinteger(L, 4);
         ImU32 col = IM_COL32(r, g, b, a);
         return push_imu32(L, col);
-    });
+    }, "IM_COL32");
     lua_setfield(L, -2, "IM_COL32");
 
     lua_setglobal(L, "Imgui");
@@ -1867,7 +1904,7 @@ void lua::initialize(foundation::Allocator &allocator) {
 
     luaL_openlibs(L);
 
-    lua_pushcfunction(L, my_print);
+    lua_pushcfunc(L, my_print, "print");
     lua_setglobal(L, "print");
 
     lua_utilities::init_module(L);
@@ -1877,10 +1914,11 @@ void lua::initialize(foundation::Allocator &allocator) {
     lua_game::init_module(L);
     lua_imgui::init_module(L);
 
-    int load_status = luaL_loadfile(L, "scripts/main.lua");
-    if (load_status) {
-        log_fatal("Could not load scripts/main.lua: %s", lua_tostring(L, -1));
-    }
+#if defined(HAS_LUAU)
+    require(L, "scripts/middleclass.lua");
+#endif
+
+	require(L, "scripts/main.lua");
 
     int exec_status = lua_pcall(L, 0, 0, 0);
     if (exec_status) {

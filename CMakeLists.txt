@@ -115,6 +115,12 @@ elseif(LUA_VERSION STREQUAL "LUAJIT")
 elseif(LUA_VERSION STREQUAL "LUAU")
     message(STATUS "Compiling with Luau")
     set(HAS_LUA True)
+    set(LUAU_EXTERN_C ON CACHE BOOL "Use extern C for all APIs")
+    FetchContent_Declare(
+        Luau
+        GIT_REPOSITORY https://github.com/luau-lang/luau.git
+    )
+    FetchContent_MakeAvailable(Luau)
 endif()
 
 if (HAS_LUA)
@@ -152,6 +158,13 @@ elseif(LUA_VERSION STREQUAL "LUAJIT")
         source_group("LuaJIT" FILES ${LUAJIT_HEADERS})
     endif()
 elseif(LUA_VERSION STREQUAL "LUAU")
+    target_link_libraries(${PROJECT_NAME} PRIVATE Luau.Compiler)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Luau.VM)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUAU)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${Luau_SOURCE_DIR}/Common/include)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${Luau_SOURCE_DIR}/Compiler/include)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${Luau_SOURCE_DIR}/VM/include)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)
