@@ -7,9 +7,8 @@ extern "C" {
 #include <luajit.h>
 #elif defined(HAS_LUAU)
 #include <luacode.h>
-#elif defined(HAS_LUA51)
-#include <lauxlib.h>
 #endif
+#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
 }
