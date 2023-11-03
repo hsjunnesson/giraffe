@@ -2,7 +2,7 @@
 --local profile = require("scripts/profile")
 
 if jit then
-    jit.on()
+    jit.off()
 end
 
 local ffi = jit and require("ffi")
@@ -41,9 +41,7 @@ if ffi then
         mat4 glm_translate(const mat4 m, const vec3 v);
         mat4 glm_scale(const mat4 m, const vec3 v);
     ]]
-end
 
-if jit then
     Glm = {
         vec2 = ffi.metatype(ffi.typeof("vec2"), {
             __tostring = function(v)
