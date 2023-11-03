@@ -7,6 +7,8 @@ extern "C" {
 #include <luajit.h>
 #elif defined(HAS_LUAU)
 #include <luacode.h>
+#elif defined(HAS_LUA51)
+#include <lauxlib.h>
 #endif
 #include <lua.h>
 #include <lualib.h>
@@ -56,7 +58,7 @@ using namespace foundation::string_stream;
 #if defined(HAS_LUAU)
 #define lua_pushcfunc(L, fn, debugname) lua_pushcfunction(L, (fn), debugname)
 #else
-#define lua_pushcfunc(L, fn, debugname) lua_pushcfunction(L, (fn), 0)
+#define lua_pushcfunc(L, fn, debugname) lua_pushcfunction(L, (fn))
 #endif
 
 #if defined(HAS_LUAJIT)
