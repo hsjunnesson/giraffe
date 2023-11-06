@@ -62,6 +62,7 @@ using namespace foundation::string_stream;
 
 #if defined(HAS_LUAJIT)
 extern "C" {
+
     struct Mat4Wrapper {
         glm::mat4 mat;
     };
@@ -73,6 +74,30 @@ extern "C" {
     struct Vec3Wrapper {
         glm::vec3 vec;
     };
+
+    struct Mob {
+        float mass;
+        Vec2Wrapper position;
+        Vec2Wrapper velocity;
+        Vec2Wrapper steering_direction;
+        Vec2Wrapper steering_target;
+        float max_force;
+        float max_speed;
+        float orientation;
+        float radius;
+    };
+
+    struct Giraffe {
+        uint64_t sprite_id;
+        Mob mob;
+        bool dead;
+    };
+
+    Giraffe giraffe_array[1000];
+
+    __declspec(dllexport) Giraffe *get_giraffe_array() {
+        return giraffe_array;
+    }
 
     __declspec(dllexport) Mat4Wrapper glm_identity_mat4() {
         Mat4Wrapper result;
@@ -170,14 +195,12 @@ extern "C" {
     __declspec(dllexport) void transform_sprite(void **game_object, uint64_t sprite_id) {
     }
 
-    int engine_transform_sprite(lua_State *L) {
-    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
-    lua_utilities::Identifier id = lua_utilities::get_identifier(L, 2);
-    math::Matrix4f transform = lua_math::get_matrix4f(L, 3);
-    
-    engine::transform_sprite(**sprites, id.value, transform);
-    return 0;
-}
+    __declspec(dllexport) void engine_transform_sprite(void **game_object, uint64_t sprite_id, Mat4Wrapper transform) {
+        game::Game *game = static_cast<game::Game *>(*game_object);
+        engine::Sprites *sprites = game->sprites;
+        math::Matrix4f matrix = math::Matrix4f(glm::value_ptr(transform.mat));
+        engine::transform_sprite(*sprites, sprite_id, matrix);
+    }
 
 }
 #endif

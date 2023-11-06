@@ -77,7 +77,10 @@ if ffi then
             Sprites *sprites;
         } Game;
 
-        uint64_t add_sprite(void **object, const char *sprite_name);
+        uint64_t add_sprite(void **game_object, const char *sprite_name);
+        void engine_transform_sprite(void **game_object, uint64_t sprite_id, mat4 transform);
+
+        Giraffe *get_giraffe_array();
     ]]
 
     if rawget(_G, "Glm") == nil then
@@ -396,7 +399,7 @@ local GIRAFFE_Z_LAYER = -2
 local FOOD_Z_LAYER = -3
 
 local game_state = {
-    giraffes = {},
+--    giraffes = {},
     obstacles = {},
     food = Food:new(),
     lion = ffi.new("Lion"),
@@ -405,16 +408,22 @@ local game_state = {
 }
 
 local spawn_giraffes = function(engine, game, num_giraffes)
-    for _ = 1, num_giraffes do
+    local giraffe_array = ffi.C.get_giraffe_array()
+
+    for i = 0, num_giraffes - 1 do
         local giraffe = ffi.new("Giraffe")
         giraffe.mob.mass = 100
         giraffe.mob.max_force = 1000
         giraffe.mob.max_speed = 300
         giraffe.mob.radius = 20
+        giraffe.mob.orientation = 0
         giraffe.mob.position = Glm.vec2(
             50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.x - 100),
             50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.y - 100)
         )
+        giraffe.mob.velocity = Glm.vec2(0, 0)
+        giraffe.mob.steering_direction = Glm.vec2(0, 0)
+        giraffe.mob.steering_target = Glm.vec2(0, 0)
         giraffe.dead = false
 
 --        local sprite = Engine.add_sprite(game.sprites, "giraffe", Engine.Color.Pico8.orange)
@@ -422,7 +431,8 @@ local spawn_giraffes = function(engine, game, num_giraffes)
         local game_ptr = ffi.cast("void**", ffi.cast("void*", game))
         local sprite_id = ffi.C.add_sprite(game_ptr, "giraffe")
         giraffe.sprite_id = sprite_id
-        table.insert(game_state.giraffes, giraffe)
+--        table.insert(game_state.giraffes, giraffe)
+        giraffe_array[i] = giraffe;
     end
 end
 
@@ -486,11 +496,18 @@ function on_enter(engine, game)
         game_state.lion.sprite_id = sprite_id
         -- local sprite = Engine.add_sprite(game.sprites, "lion", Engine.Color.Pico8.yellow)
         -- game_state.lion.sprite_id = sprite:identifier()
-        game_state.lion.mob.position = Glm.vec2(engine.window_rect.size.x * 0.75, engine.window_rect.size.y * 0.75)
         game_state.lion.mob.mass = 25
+        game_state.lion.mob.position = Glm.vec2(engine.window_rect.size.x * 0.75, engine.window_rect.size.y * 0.75)
+        game_state.lion.mob.velocity = Glm.vec2(0, 0)
+        game_state.lion.mob.steering_direction = Glm.vec2(0, 0)
+        game_state.lion.mob.steering_target = Glm.vec2(0, 0)
         game_state.lion.mob.max_force = 1000
         game_state.lion.mob.max_speed = 400
+        game_state.lion.mob.orientation = 0
         game_state.lion.mob.radius = 20
+        game_state.lion.locked_giraffe = nil
+        game_state.lion.energy = 0
+        game_state.lion.max_energy = 10
     end
 end
 
@@ -618,7 +635,7 @@ local avoidance_behavior = function(mob, engine, game)
 
     -- check against each obstacle
     for _, obstacle in ipairs(game_state.obstacles) do
-        local did_li, li = Glm.ray_circle_intersection(left_start, forward, obstacle.position, obstacle.radius);
+        local did_li, li = Glm.ray_circle_intersection(left_start, forward, obstacle.position, obstacle.radius)
         if did_li then
             local distance = Glm.length(li - left_start)
             if distance <= look_ahead_distance and distance < left_intersection_distance then
@@ -716,7 +733,10 @@ local update_giraffe = function(giraffe, engine, game, dt)
 
         -- separation
         do
-            for _, other_giraffe in ipairs(game_state.giraffes) do
+--            for _, other_giraffe in ipairs(game_state.giraffes) do
+            local giraffe_array = ffi.C.get_giraffe_array()
+            for i = 0, 999 do
+                local other_giraffe = giraffe_array[i]
                 if other_giraffe ~= giraffe and not other_giraffe.dead then
                     local offset = other_giraffe.mob.position - giraffe.mob.position
                     local distance_squared = Glm.length2(offset)
@@ -768,16 +788,20 @@ local update_giraffe = function(giraffe, engine, game, dt)
     ))
     transform = Glm.scale(transform, Glm.vec3((flip_x and -1.0 or 1.0) * giraffe_frame.rect.size.x, (flip_y and -1.0 or 1.0) * giraffe_frame.rect.size.y, 1.0))
 
-    local matrix = Math.matrix4f_from_transform(transform)
-    Engine.transform_sprite(game.sprites, giraffe.sprite_id, matrix)
+    ffi.C.engine_transform_sprite(game, giraffe.sprite_id, transform)
+    -- local matrix = Math.matrix4f_from_transform(transform)
+    -- Engine.transform_sprite(game.sprites, giraffe.sprite_id, matrix)
 end
 
 local update_lion = function(lion, engine, game, t, dt)
-    if not lion.locked_giraffe then
+    if lion.locked_giraffe == nil then
         if lion.energy >= lion.max_energy then
             local found_giraffe = nil
             local distance = 1000000
-            for _, giraffe in ipairs(game_state.giraffes) do
+            local giraffe_array = ffi.C.get_giraffe_array()
+--            for _, giraffe in ipairs(game_state.giraffes) do
+            for i = 0, 999 do
+                local giraffe = giraffe_array[i]
                 if not giraffe.dead then
                     local d = Glm.length(giraffe.mob.position - lion.mob.position)
                     if d < distance then
@@ -796,7 +820,7 @@ local update_lion = function(lion, engine, game, t, dt)
         end
     end
 
-    if lion.locked_giraffe then
+    if lion.locked_giraffe ~= nil then
         lion.mob.steering_target = lion.locked_giraffe.mob.position
 
         local pursue_force = Glm.vec2(0, 0)
@@ -822,7 +846,7 @@ local update_lion = function(lion, engine, game, t, dt)
 
         if Glm.length(lion.locked_giraffe.mob.position - lion.mob.position) <= lion.mob.radius then
             lion.locked_giraffe.dead = true
-            Engine.color_sprite(game.sprites, lion.locked_giraffe.sprite_id, Engine.Color.Pico8.light_gray)
+--            Engine.color_sprite(game.sprites, lion.locked_giraffe.sprite_id, Engine.Color.Pico8.light_gray)
 
             lion.locked_giraffe = nil
             lion.energy = 0
@@ -837,12 +861,12 @@ local update_lion = function(lion, engine, game, t, dt)
         end
     end
 
-    update_mob(lion.mob, game, dt);
+    update_mob(lion.mob, game, dt)
 
     local lion_frame = Engine.atlas_frame(game.sprites.atlas, "lion")
 
     local transform = Glm.mat4(1.0)
-    local flip = lion.locked_giraffe and lion.locked_giraffe.mob.position.x < lion.mob.position.x
+    local flip = lion.locked_giraffe ~= nil and lion.locked_giraffe.mob.position.x < lion.mob.position.x
 
     local x_offset = lion_frame.rect.size.x * lion_frame.pivot.x
 
@@ -857,12 +881,17 @@ local update_lion = function(lion, engine, game, t, dt)
     ))
     transform = Glm.scale(transform, Glm.vec3((flip and -1.0 or 1.0) * lion_frame.rect.size.x, lion_frame.rect.size.y, 1.0))
 
-    local matrix = Math.matrix4f_from_transform(transform)
-    Engine.transform_sprite(game.sprites, lion.sprite_id, matrix)
+    ffi.C.engine_transform_sprite(game, lion.sprite_id, transform)
+
+    -- local matrix = Math.matrix4f_from_transform(transform)
+    -- Engine.transform_sprite(game.sprites, lion.sprite_id, matrix)
 end
 
 function update(engine, game, t, dt)
-    for _, giraffe in ipairs(game_state.giraffes) do
+    local giraffe_array = ffi.C.get_giraffe_array()
+--    for _, giraffe in ipairs(game_state.giraffes) do
+    for i = 0, 999 do
+        local giraffe = giraffe_array[i]
         update_giraffe(giraffe, engine, game, dt)
     end
 
@@ -931,12 +960,6 @@ function render_imgui(engine, game)
             end
         end
 
-        for _, giraffe in ipairs(game_state.giraffes) do
-            if not giraffe.dead then
-                debug_draw_mob(giraffe.mob)
-            end
-        end
-
         -- lion
         do
             debug_draw_mob(game_state.lion.mob)
@@ -966,7 +989,7 @@ function render_imgui(engine, game)
         ss = ss .. string.format("KEY_5: Spawn 5 giraffes\n")
         ss = ss .. string.format("KEY_0: Spawn 10 giraffes\n")
         ss = ss .. string.format("MOUSE_LEFT: Move food\n")
-        ss = ss .. string.format("Giraffes: %u\n", #game_state.giraffes)
+        ss = ss .. string.format("Giraffes: %u\n", 1000)
 
         draw_list:AddText(Imgui.Imvec2(8, 8), Imgui.IM_COL32(255, 255, 255, 255), ss)
     end
