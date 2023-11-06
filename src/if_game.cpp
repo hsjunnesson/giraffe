@@ -1915,10 +1915,6 @@ void lua::initialize(foundation::Allocator &allocator) {
     lua_game::init_module(L);
     lua_imgui::init_module(L);
 
-#if defined(HAS_LUAU)
-    require(L, "scripts/middleclass.lua");
-#endif
-
 	require(L, "scripts/main.lua");
 
     int exec_status = lua_pcall(L, 0, 0, 0);
