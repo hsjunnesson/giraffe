@@ -159,6 +159,26 @@ extern "C" {
         result.mat = glm::scale(mat4.mat, vec3.vec);
         return result;
     }
+
+    __declspec(dllexport) uint64_t add_sprite(void **game_object, const char *sprite_name) {
+        game::Game *game = static_cast<game::Game *>(*game_object);
+        engine::Sprites *sprites = game->sprites;
+        const engine::Sprite sprite = engine::add_sprite(*sprites, sprite_name);
+        return sprite.id;
+    }
+
+    __declspec(dllexport) void transform_sprite(void **game_object, uint64_t sprite_id) {
+    }
+
+    int engine_transform_sprite(lua_State *L) {
+    engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
+    lua_utilities::Identifier id = lua_utilities::get_identifier(L, 2);
+    math::Matrix4f transform = lua_math::get_matrix4f(L, 3);
+    
+    engine::transform_sprite(**sprites, id.value, transform);
+    return 0;
+}
+
 }
 #endif
 

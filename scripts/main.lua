@@ -1,4 +1,4 @@
---local dbg = require("scripts/debugger")
+local dbg = require("scripts/debugger")
 --local profile = require("scripts/profile")
 
 if jit then
@@ -40,72 +40,112 @@ if ffi then
         mat4 glm_identity_mat4();
         mat4 glm_translate(const mat4 m, const vec3 v);
         mat4 glm_scale(const mat4 m, const vec3 v);
+
+        typedef struct {
+            float mass;
+            vec2 position;
+            vec2 velocity;
+            vec2 steering_direction;
+            vec2 steering_target;
+            float max_force;
+            float max_speed;
+            float orientation;
+            float radius;
+        } Mob;
+
+        typedef struct {
+            uint64_t sprite_id;
+            Mob mob;
+            bool dead;
+        } Giraffe;
+
+        typedef struct {
+            uint64_t sprite_id;
+            Mob mob;
+            Giraffe *locked_giraffe;
+            float energy;
+            float max_energy;
+        } Lion;
+
+        typedef struct {
+            uint64_t id;
+        } Sprite;
+
+        typedef struct Sprites Sprites;
+
+        typedef struct {
+            Sprites *sprites;
+        } Game;
+
+        uint64_t add_sprite(void **object, const char *sprite_name);
     ]]
 
-    Glm = {
-        vec2 = ffi.metatype(ffi.typeof("vec2"), {
-            __tostring = function(v)
-                return "vec2(" .. v.x .. ", " .. v.y .. ")"
-            end,
-            __add = function(lhs, rhs)
-                return ffi.C.glm_add_vec2(lhs, rhs)
-            end,
-            __sub = function(lhs, rhs)
-                return ffi.C.glm_subtract_vec2(lhs, rhs)
-            end,
-            __mul = function(lhs, rhs)
-                if type(lhs) == "number" and ffi.istype("vec2", rhs) then -- Multiply a scalar with vec2
-                    return ffi.C.glm_multiply_vec2_scalar(rhs, lhs)
-                elseif ffi.istype("vec2", lhs) and type(rhs) == "number" then -- Multiply a vec2 with a scalar
-                    return ffi.C.glm_multiply_vec2_scalar(lhs, rhs)
-                elseif ffi.istype("vec2", lhs) and ffi.istype("vec2", rhs) then -- Multiply two vec2 objects
-                    return ffi.C.glm_multiply_vec2_vec2(lhs, rhs)
-                else
-                    error("Invalid types for multiplication")
+    if rawget(_G, "Glm") == nil then
+        Glm = {
+            vec2 = ffi.metatype(ffi.typeof("vec2"), {
+                __tostring = function(v)
+                    return "vec2(" .. v.x .. ", " .. v.y .. ")"
+                end,
+                __add = function(lhs, rhs)
+                    return ffi.C.glm_add_vec2(lhs, rhs)
+                end,
+                __sub = function(lhs, rhs)
+                    return ffi.C.glm_subtract_vec2(lhs, rhs)
+                end,
+                __mul = function(lhs, rhs)
+                    if type(lhs) == "number" and ffi.istype("vec2", rhs) then -- Multiply a scalar with vec2
+                        return ffi.C.glm_multiply_vec2_scalar(rhs, lhs)
+                    elseif ffi.istype("vec2", lhs) and type(rhs) == "number" then -- Multiply a vec2 with a scalar
+                        return ffi.C.glm_multiply_vec2_scalar(lhs, rhs)
+                    elseif ffi.istype("vec2", lhs) and ffi.istype("vec2", rhs) then -- Multiply two vec2 objects
+                        return ffi.C.glm_multiply_vec2_vec2(lhs, rhs)
+                    else
+                        error("Invalid types for multiplication")
+                    end
+                end,
+                __div = function(lhs, rhs)
+                    return ffi.C.glm_divide_vec2_scalar(lhs, rhs)
                 end
-            end,
-            __div = function(lhs, rhs)
-                return ffi.C.glm_divide_vec2_scalar(lhs, rhs)
-            end
-        }),
-        vec3 = ffi.metatype(ffi.typeof("vec3"), {
-            __tostring = function(v)
-                return "vec3(" .. v.x .. ", " .. v.y .. ", " .. v.z .. ")"
-            end
-        }),
-        mat4 = ffi.metatype(ffi.typeof("mat4"), {
-            __tostring = function(v)
-                return "mat4(...)"
-            end,
-            __new = function(ct, ...)
-                -- Check number of arguments to the constructor
-                local nargs = select("#", ...)
-                if nargs == 1 and type(select(1, ...)) == "number" and select(1, ...) == 1.0 then
-                    -- If the argument is 1.0, use the identity matrix constructor
-                    return ffi.C.glm_identity_mat4()
-                else
-                    -- Otherwise, you could call a default constructor or handle other cases
-                    return ffi.new(ct, ...)
+            }),
+            vec3 = ffi.metatype(ffi.typeof("vec3"), {
+                __tostring = function(v)
+                    return "vec3(" .. v.x .. ", " .. v.y .. ", " .. v.z .. ")"
                 end
-            end
-        }),
-        ray_circle_intersection = function(ray_origin, ray_direction, circle_center, circle_radius)
-            local intersection = ffi.new("vec2")
-            local hit = ffi.C.glm_ray_circle_intersection(ray_origin, ray_direction, circle_center, circle_radius, intersection)
-            return hit, intersection
-        end,
-        ray_line_intersection = function()
-            local intersection = ffi.new("vec2")
-            local hit = ffi.C.glm_ray_line_intersection(ray_origin, ray_direction, p1, p2, intersection)
-            return hit, intersection
-        end,
-        truncate = ffi.C.glm_truncate,
-        normalize = ffi.C.glm_normalize,
-        length = ffi.C.glm_length,
-        length2 = ffi.C.glm_length2,
-        translate = ffi.C.glm_translate,
-        scale = ffi.C.glm_scale,
-    }
+            }),
+            mat4 = ffi.metatype(ffi.typeof("mat4"), {
+                __tostring = function(v)
+                    return "mat4(...)"
+                end,
+                __new = function(ct, ...)
+                    -- Check number of arguments to the constructor
+                    local nargs = select("#", ...)
+                    if nargs == 1 and type(select(1, ...)) == "number" and select(1, ...) == 1.0 then
+                        -- If the argument is 1.0, use the identity matrix constructor
+                        return ffi.C.glm_identity_mat4()
+                    else
+                        -- Otherwise, you could call a default constructor or handle other cases
+                        return ffi.new(ct, ...)
+                    end
+                end
+            }),
+            ray_circle_intersection = function(ray_origin, ray_direction, circle_center, circle_radius)
+                local intersection = ffi.new("vec2")
+                local hit = ffi.C.glm_ray_circle_intersection(ray_origin, ray_direction, circle_center, circle_radius, intersection)
+                return hit, intersection
+            end,
+            ray_line_intersection = function()
+                local intersection = ffi.new("vec2")
+                local hit = ffi.C.glm_ray_line_intersection(ray_origin, ray_direction, p1, p2, intersection)
+                return hit, intersection
+            end,
+            truncate = ffi.C.glm_truncate,
+            normalize = ffi.C.glm_normalize,
+            length = ffi.C.glm_length,
+            length2 = ffi.C.glm_length2,
+            translate = ffi.C.glm_translate,
+            scale = ffi.C.glm_scale,
+        }
+    end
 end
 
 --local class = require("scripts/middleclass")
@@ -308,35 +348,34 @@ end
 
 local class = require_middleclass()
 
+-- local Mob = class("Mob")
+-- function Mob:initialize()
+--     self.mass = 100
+--     self.position = Glm.vec2(0, 0)
+--     self.velocity = Glm.vec2(0, 0)
+--     self.steering_direction = Glm.vec2(0, 0)
+--     self.steering_target = Glm.vec2(0, 0)
+--     self.max_force = 30
+--     self.max_speed = 30
+--     self.orientation = 0
+--     self.radius = 10
+-- end
 
-local Mob = class("Mob")
-function Mob:initialize()
-    self.mass = 100
-    self.position = Glm.vec2(0, 0)
-    self.velocity = Glm.vec2(0, 0)
-    self.steering_direction = Glm.vec2(0, 0)
-    self.steering_target = Glm.vec2(0, 0)
-    self.max_force = 30
-    self.max_speed = 30
-    self.orientation = 0
-    self.radius = 10
-end
+-- local Giraffe = class("Giraffe")
+-- function Giraffe:initialize()
+--     self.sprite_id = 0
+--     self.mob = Mob()
+--     self.dead = false
+-- end
 
-local Giraffe = class("Giraffe")
-function Giraffe:initialize()
-    self.sprite_id = 0
-    self.mob = Mob:new()
-    self.dead = false
-end
-
-local Lion = class("Lion")
-function Lion:initialize()
-    self.sprite_id = 0
-    self.mob = Mob:new()
-    self.locked_giraffe = nil
-    self.energy = 0
-    self.max_energy = 10
-end
+-- local Lion = class("Lion")
+-- function Lion:initialize()
+--     self.sprite_id = 0
+--     self.mob = Mob()
+--     self.locked_giraffe = nil
+--     self.energy = 0
+--     self.max_energy = 10
+-- end
 
 local Food = class("Food")
 function Food:initialize()
@@ -360,14 +399,14 @@ local game_state = {
     giraffes = {},
     obstacles = {},
     food = Food:new(),
-    lion = Lion:new(),
+    lion = ffi.new("Lion"),
     debug_draw = false,
     debug_avoidance = false,
 }
 
 local spawn_giraffes = function(engine, game, num_giraffes)
     for _ = 1, num_giraffes do
-        local giraffe = Giraffe:new()
+        local giraffe = ffi.new("Giraffe")
         giraffe.mob.mass = 100
         giraffe.mob.max_force = 1000
         giraffe.mob.max_speed = 300
@@ -376,9 +415,13 @@ local spawn_giraffes = function(engine, game, num_giraffes)
             50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.x - 100),
             50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.y - 100)
         )
+        giraffe.dead = false
 
-        local sprite = Engine.add_sprite(game.sprites, "giraffe", Engine.Color.Pico8.orange)
-        giraffe.sprite_id = sprite:identifier()
+--        local sprite = Engine.add_sprite(game.sprites, "giraffe", Engine.Color.Pico8.orange)
+--        giraffe.sprite_id = sprite:identifier()
+        local game_ptr = ffi.cast("void**", ffi.cast("void*", game))
+        local sprite_id = ffi.C.add_sprite(game_ptr, "giraffe")
+        giraffe.sprite_id = sprite_id
         table.insert(game_state.giraffes, giraffe)
     end
 end
@@ -438,8 +481,11 @@ function on_enter(engine, game)
 
     -- Spawn lion
     do
-        local sprite = Engine.add_sprite(game.sprites, "lion", Engine.Color.Pico8.yellow)
-        game_state.lion.sprite_id = sprite:identifier()
+        local game_ptr = ffi.cast("void**", ffi.cast("void*", game))
+        local sprite_id = ffi.C.add_sprite(game_ptr, "lion")
+        game_state.lion.sprite_id = sprite_id
+        -- local sprite = Engine.add_sprite(game.sprites, "lion", Engine.Color.Pico8.yellow)
+        -- game_state.lion.sprite_id = sprite:identifier()
         game_state.lion.mob.position = Glm.vec2(engine.window_rect.size.x * 0.75, engine.window_rect.size.y * 0.75)
         game_state.lion.mob.mass = 25
         game_state.lion.mob.max_force = 1000
