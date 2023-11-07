@@ -145,6 +145,8 @@ elseif(HAS_ANGELSCRIPT)
         "src/add_on/scriptstdstring/scriptstdstring.cpp"
         "src/add_on/scriptarray/scriptarray.h"
         "src/add_on/scriptarray/scriptarray.cpp"
+        "src/add_on/scripthandle/scripthandle.h"
+        "src/add_on/scripthandle/scripthandle.cpp"
     )
 endif()
 

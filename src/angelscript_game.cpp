@@ -13,10 +13,19 @@
 #include <engine/input.h>
 #include <engine/log.h>
 #include <engine/file.h>
+#include <engine/sprites.h>
+
+#include <string>
+#include <sstream>
+
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/norm.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include <angelscript.h>
 #include "add_on/scriptstdstring/scriptstdstring.h"
 #include "add_on/scriptbuilder/scriptbuilder.h"
+#include "add_on/scripthandle/scripthandle.h"
 
 namespace {
 asIScriptEngine *script_engine = nullptr;
@@ -40,6 +49,27 @@ void print(std::string &msg) {
     log_info("[ANGELSCRIPT] %s", msg.c_str());
 }
 
+void update_sprites_wrapper(engine::Sprites *sprites, float t, float dt) {
+    engine::update_sprites(*sprites, t, dt);
+}
+
+glm::vec2 add_vec2(const glm::vec2& a, const glm::vec2& b) {
+    return a + b;
+}
+
+glm::vec2 sub_vec2(const glm::vec2& a, const glm::vec2& b) {
+    return a - b;
+}
+
+void ConstructVec2(float x, float y, void *memory) {
+    new(memory) glm::vec2(x, y);
+}
+
+void DestructVec2(void *memory) {
+//    ((glm::vec2*)memory)->~vec2();
+}
+
+
 namespace angelscript {
 
 void initialize(foundation::Allocator &allocator) {
@@ -54,6 +84,7 @@ void initialize(foundation::Allocator &allocator) {
     assert(r >= 0);
 
     RegisterStdString(script_engine);
+    RegisterScriptHandle(script_engine);
     
     // Register functions
 
@@ -76,25 +107,72 @@ void initialize(foundation::Allocator &allocator) {
     ctx = script_engine->CreateContext();
     assert(ctx);
 
-    // Register namespaces and types
+	// Register namespaces and types
 
-    r = script_engine->SetDefaultNamespace("engine");
-    assert(r >= 0);
+	{
+		// engine.h
 
-    r = script_engine->RegisterObjectType("Engine", 0, asOBJ_REF | asOBJ_NOCOUNT);
-    assert(r >= 0);
+		r = script_engine->SetDefaultNamespace("engine");
+		assert(r >= 0);
+	
+		r = script_engine->RegisterObjectType("Engine", 0, asOBJ_REF | asOBJ_NOCOUNT);
+		assert(r >= 0);
+		
+		
+		// sprites.h
 
-    r = script_engine->SetDefaultNamespace("");
-    assert(r >= 0);
+		r = script_engine->RegisterObjectType("Sprites", 0, asOBJ_REF | asOBJ_NOCOUNT);
+		assert(r >= 0);
 
-    r = script_engine->SetDefaultNamespace("game");
-    assert(r >= 0);
+		r = script_engine->RegisterGlobalFunction("void update_sprites(Sprites@ sprites, float t, float dt)", asFUNCTION(update_sprites_wrapper), asCALL_CDECL);
+		assert(r >= 0);
+		
+		r = script_engine->SetDefaultNamespace("");
+		assert(r >= 0);
+	}
 
-    r = script_engine->RegisterObjectType("Game", 0, asOBJ_REF | asOBJ_NOCOUNT);
-    assert(r >= 0);
+	{
+		r = script_engine->SetDefaultNamespace("glm");
+		assert(r >= 0);
 
-    r = script_engine->SetDefaultNamespace("");
-    assert(r >= 0);
+		r = script_engine->RegisterObjectType("vec2", sizeof(glm::vec2), asOBJ_VALUE | asGetTypeTraits<glm::vec2>());
+		assert(r >= 0);
+
+		r = script_engine->RegisterObjectBehaviour("vec2", asBEHAVE_CONSTRUCT, "void f()", asFUNCTION(ConstructVec2), asCALL_CDECL_OBJLAST);
+		assert(r >= 0);
+
+		r = script_engine->RegisterObjectBehaviour("vec2", asBEHAVE_CONSTRUCT, "void f(float, float)", asFUNCTION(ConstructVec2), asCALL_CDECL_OBJLAST);
+		assert(r >= 0);
+
+		r = script_engine->RegisterObjectBehaviour("vec2", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(DestructVec2), asCALL_CDECL_OBJLAST);
+		assert(r >= 0);
+
+		r = script_engine->RegisterGlobalFunction("vec2 AddVec2(const vec2 &in, const vec2 &in)", asFUNCTION(add_vec2), asCALL_CDECL);
+		assert(r >= 0);
+
+		r = script_engine->RegisterGlobalFunction("vec2 SubVec2(const vec2 &in, const vec2 &in)", asFUNCTION(sub_vec2), asCALL_CDECL);
+		assert(r >= 0);
+
+		r = script_engine->SetDefaultNamespace("");
+		assert(r >= 0);
+	}
+
+	{
+		r = script_engine->SetDefaultNamespace("game");
+		assert(r >= 0);
+	
+		// game.h
+
+		r = script_engine->RegisterObjectType("Game", 0, asOBJ_REF | asOBJ_NOCOUNT);
+		assert(r >= 0);
+	
+		r = script_engine->RegisterObjectProperty("Game", "engine::Sprites@ sprites", asOFFSET(game::Game, sprites));
+		assert(r >= 0);
+
+
+		r = script_engine->SetDefaultNamespace("");
+		assert(r >= 0);
+	}
 
     // Build module
 
@@ -103,7 +181,7 @@ void initialize(foundation::Allocator &allocator) {
 
     // Get functions
     
-    update_func = mod->GetFunctionByDecl("void update(engine::Engine @engine, game::Game @game, float t, float dt)");
+    update_func = mod->GetFunctionByDecl("void update(engine::Engine@ engine, game::Game@ game, float t, float dt)");
     assert(update_func);
 }
 
