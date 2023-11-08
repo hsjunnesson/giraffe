@@ -60,108 +60,6 @@ using namespace foundation::string_stream;
 #define lua_pushcfunc(L, fn, debugname) lua_pushcfunction(L, (fn))
 #endif
 
-#if defined(HAS_LUAJIT)
-extern "C" {
-    struct Mat4Wrapper {
-        glm::mat4 mat;
-    };
-
-    struct Vec2Wrapper {
-        glm::vec2 vec;
-    };
-
-    struct Vec3Wrapper {
-        glm::vec3 vec;
-    };
-
-    __declspec(dllexport) Mat4Wrapper glm_identity_mat4() {
-        Mat4Wrapper result;
-        result.mat = glm::mat4(1.0f);
-        return result;
-    }
-    
-    __declspec(dllexport) Vec2Wrapper glm_add_vec2(const Vec2Wrapper lhs, const Vec2Wrapper rhs) {
-        Vec2Wrapper result;
-        result.vec = lhs.vec + rhs.vec;
-        return result;
-    }
-
-    __declspec(dllexport) Vec2Wrapper glm_subtract_vec2(const Vec2Wrapper lhs, const Vec2Wrapper rhs) {
-        Vec2Wrapper result;
-        result.vec = lhs.vec - rhs.vec;
-        return result;
-    }
-
-    __declspec(dllexport) Vec2Wrapper glm_multiply_vec2_vec2(const Vec2Wrapper lhs, const Vec2Wrapper rhs) {
-        Vec2Wrapper result;
-        result.vec = lhs.vec * rhs.vec;
-        return result;
-    }
-
-    __declspec(dllexport) Vec2Wrapper glm_multiply_vec2_scalar(const Vec2Wrapper lhs, const float rhs) {
-        Vec2Wrapper result;
-        result.vec = lhs.vec * rhs;
-        return result;
-    }
-
-    __declspec(dllexport) Vec2Wrapper glm_divide_vec2_scalar(const Vec2Wrapper lhs, const float rhs) {
-        Vec2Wrapper result;
-        result.vec = lhs.vec / rhs;
-        return result;
-    }
-
-    __declspec(dllexport) bool glm_ray_circle_intersection(const Vec2Wrapper ray_origin, const Vec2Wrapper ray_direction, const Vec2Wrapper circle_center, float circle_radius, Vec2Wrapper *intersection) {
-        glm::vec2 result;
-        bool hit = ray_circle_intersection(ray_origin.vec, ray_direction.vec, circle_center.vec, circle_radius, result);
-        if (hit && intersection) {
-            intersection->vec = result;
-        }
-        return hit;
-    }
-
-    __declspec(dllexport) bool glm_ray_line_intersection(const Vec2Wrapper ray_origin, const Vec2Wrapper ray_direction, const Vec2Wrapper p1, const Vec2Wrapper p2, Vec2Wrapper *intersection) {
-        glm::vec2 result;
-        bool hit = ray_line_intersection(ray_origin.vec, ray_direction.vec, p1.vec, p2.vec, result);
-        if (hit && intersection) {
-            intersection->vec = result;
-        }
-        return hit;
-    }
-
-    __declspec(dllexport) Vec2Wrapper glm_truncate(const Vec2Wrapper vec2, float max_length) {
-        Vec2Wrapper result;
-        result.vec = truncate(vec2.vec, max_length);
-        return result;
-    }
-
-    __declspec(dllexport) Vec2Wrapper glm_normalize(const Vec2Wrapper vec2) {
-        Vec2Wrapper result;
-        result.vec = glm::normalize(vec2.vec);
-        return result;
-    }
-
-    __declspec(dllexport) float glm_length(const Vec2Wrapper vec2) {
-        return glm::length(vec2.vec);
-    }
-
-    __declspec(dllexport) float glm_length2(const Vec2Wrapper vec2) {
-        return glm::length2(vec2.vec);
-    }
-
-    __declspec(dllexport) Mat4Wrapper glm_translate(const Mat4Wrapper mat4, const Vec3Wrapper vec3) {
-        Mat4Wrapper result;
-        result.mat = glm::translate(mat4.mat, vec3.vec);
-        return result;
-    }
-
-    __declspec(dllexport) Mat4Wrapper glm_scale(const Mat4Wrapper mat4, const Vec3Wrapper vec3) {
-        Mat4Wrapper result;
-        result.mat = glm::scale(mat4.mat, vec3.vec);
-        return result;
-    }
-}
-#endif
-
 // Custom print function that uses engine logging.
 int my_print(lua_State *L) {
     using namespace string_stream;
@@ -428,7 +326,6 @@ void init_module(lua_State *L) {
 
 namespace lua_glm {
 
-#if !defined(HAS_LUAJIT)
 static const char *VEC2_METATABLE = "Glm.vec2";
 static const char *VEC3_METATABLE = "Glm.vec3";
 static const char *MAT4_METATABLE = "Glm.mat4";
@@ -755,10 +652,8 @@ int glm_scale(lua_State *L) {
 
     return 1;
 }
-#endif
 
 void init_module(lua_State *L) {
-#if !defined(HAS_LUAJIT)
     // glm::vec2
     {
         // Register the vec2 metatable
@@ -871,7 +766,6 @@ void init_module(lua_State *L) {
 
    
     lua_setglobal(L, "Glm");
-#endif
 }
 
 } // namespace glm
@@ -935,16 +829,9 @@ math::Matrix4f get_matrix4f(lua_State *L, int index) {
 }
 
 int matrix4f_from_transform(lua_State *L) {
-#if defined(HAS_LUAJIT)
-    void *matrix_ptr = const_cast<void *>(lua_topointer(L, 1));
-    Mat4Wrapper *matrix_wrapper = reinterpret_cast<Mat4Wrapper *>(matrix_ptr);
-    math::Matrix4f *matrix_results = static_cast<math::Matrix4f *>(lua_newuserdata(L, sizeof(math::Matrix4f)));
-    new (matrix_results) math::Matrix4f(glm::value_ptr(matrix_wrapper->mat));
-#else
     glm::mat4 *matrix = static_cast<glm::mat4 *>(luaL_checkudata(L, 1, lua_glm::MAT4_METATABLE));
     math::Matrix4f *matrix_results = static_cast<math::Matrix4f *>(lua_newuserdata(L, sizeof(math::Matrix4f)));
     new (matrix_results) math::Matrix4f(glm::value_ptr(*matrix));
-#endif
     
     luaL_getmetatable(L, MATRIX4F_METATABLE);
     lua_setmetatable(L, -2);
@@ -1870,38 +1757,59 @@ void init_module(lua_State *L) {
 
 } // namespace imgui
 
+#define POOL_SIZE (1 * 1024 * 1024 * 1024) // 1 Gigabyte
+#define ALIGNMENT 8 // Align to 8 bytes for 64-bit systems
+
+foundation::Allocator *memory_pool_allocator = nullptr;
+static char *memory_pool;
+static size_t offset = 0;
+
+static size_t align(size_t offset, size_t alignment) {
+    return (offset + (alignment - 1)) & ~(alignment - 1);
+}
+
 static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
-    foundation::Allocator &allocator = *(static_cast<foundation::Allocator *>(ud));
-    
+    (void)ud;
+
     if (nsize == 0) {
-        if (ptr) {
-            allocator.deallocate(ptr);
-        }
-        
-        return nullptr;
-    }
-    
-    void *new_ptr = allocator.allocate(nsize);
-    if (!new_ptr) {
-        log_fatal("Could not allocate memory");
+        return NULL;
     }
 
-    if (ptr) {
-        memcpy(new_ptr, ptr, std::min(osize, nsize));
-        allocator.deallocate(ptr);
+    offset = align(offset, ALIGNMENT);
+
+    if (offset + nsize > POOL_SIZE) {
+        log_fatal("Out of memory");
     }
-    
-    return new_ptr;
+
+    if (ptr == NULL) {
+        void *new_ptr = memory_pool + offset;
+        offset += nsize;
+        return new_ptr;
+    } else {
+        size_t copy_size = (nsize < osize) ? nsize : osize;
+        void *new_ptr = memory_pool + offset;
+        memcpy(new_ptr, ptr, copy_size);
+        offset += nsize;
+        return new_ptr;
+    }
 }
 
 void lua::initialize(foundation::Allocator &allocator) {
     log_info("Initializing lua");
 
-#if defined(HAS_LUAJIT)
-    L = luaL_newstate();
-#else
+    memory_pool = (char *)allocator.allocate(POOL_SIZE, ALIGNMENT);
+    memory_pool_allocator = &allocator;
+
+	if (!memory_pool) {
+		log_fatal("Could not allocate memory pool");
+	}
+
+    size_t base_addr = (size_t)memory_pool;
+    if (base_addr % ALIGNMENT != 0) {
+		log_fatal("Memory pool is not properly aligned");
+    }
+
     L = lua_newstate(l_alloc, &allocator);
-#endif
 
     luaL_openlibs(L);
 
@@ -1926,6 +1834,8 @@ void lua::initialize(foundation::Allocator &allocator) {
 void lua::close() {
     lua_close(L);
     L = nullptr;
+
+    memory_pool_allocator->deallocate(memory_pool);
 }
 
 // These are the implementation of the functions declared in game.cpp so that all the gameplay implementation runs in Lua.

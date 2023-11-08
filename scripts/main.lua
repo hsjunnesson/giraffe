@@ -5,7 +5,7 @@ if jit then
     jit.off()
 end
 
-local ffi = jit and require("ffi")
+--local ffi = jit and require("ffi")
 
 if ffi then
     ffi.cdef[[
