@@ -1,114 +1,9 @@
 --local dbg = require("scripts/debugger")
---local profile = require("scripts/profile")
+local profile = require("scripts/profile")
 
 if jit then
-    jit.off()
+    jit.on()
 end
-
-local ffi = jit and require("ffi")
-
-if ffi then
-    ffi.cdef[[
-        typedef struct {
-            float x;
-            float y;
-        } vec2;
-
-        typedef struct {
-            float x;
-            float y;
-            float z;
-        } vec3;
-
-        typedef struct {
-            float m[4][4];
-        } mat4;
-
-        vec2 glm_add_vec2(const vec2 lhs, const vec2 rhs);
-        vec2 glm_subtract_vec2(const vec2 lhs, const vec2 rhs);
-        vec2 glm_multiply_vec2_vec2(const vec2 lhs, const vec2 rhs);
-        vec2 glm_multiply_vec2_scalar(const vec2 lhs, const float rhs);
-        vec2 glm_divide_vec2_scalar(const vec2 lhs, const float rhs);
-
-        bool glm_ray_circle_intersection(const vec2 ray_origin, const vec2 ray_direction, const vec2 circle_center, float circle_radius, vec2 *intersection);
-        bool glm_ray_line_intersection(const vec2 ray_origin, const vec2 ray_direction, const vec2 p1, const vec2 p2, vec2 *intersection);
-        vec2 glm_truncate(const vec2 v, float max_length);
-        vec2 glm_normalize(const vec2 v);
-        float glm_length(const vec2 v);
-        float glm_length2(const vec2 v);
-
-        mat4 glm_identity_mat4();
-        mat4 glm_translate(const mat4 m, const vec3 v);
-        mat4 glm_scale(const mat4 m, const vec3 v);
-    ]]
-
-    Glm = {
-        vec2 = ffi.metatype(ffi.typeof("vec2"), {
-            __tostring = function(v)
-                return "vec2(" .. v.x .. ", " .. v.y .. ")"
-            end,
-            __add = function(lhs, rhs)
-                return ffi.C.glm_add_vec2(lhs, rhs)
-            end,
-            __sub = function(lhs, rhs)
-                return ffi.C.glm_subtract_vec2(lhs, rhs)
-            end,
-            __mul = function(lhs, rhs)
-                if type(lhs) == "number" and ffi.istype("vec2", rhs) then -- Multiply a scalar with vec2
-                    return ffi.C.glm_multiply_vec2_scalar(rhs, lhs)
-                elseif ffi.istype("vec2", lhs) and type(rhs) == "number" then -- Multiply a vec2 with a scalar
-                    return ffi.C.glm_multiply_vec2_scalar(lhs, rhs)
-                elseif ffi.istype("vec2", lhs) and ffi.istype("vec2", rhs) then -- Multiply two vec2 objects
-                    return ffi.C.glm_multiply_vec2_vec2(lhs, rhs)
-                else
-                    error("Invalid types for multiplication")
-                end
-            end,
-            __div = function(lhs, rhs)
-                return ffi.C.glm_divide_vec2_scalar(lhs, rhs)
-            end
-        }),
-        vec3 = ffi.metatype(ffi.typeof("vec3"), {
-            __tostring = function(v)
-                return "vec3(" .. v.x .. ", " .. v.y .. ", " .. v.z .. ")"
-            end
-        }),
-        mat4 = ffi.metatype(ffi.typeof("mat4"), {
-            __tostring = function(v)
-                return "mat4(...)"
-            end,
-            __new = function(ct, ...)
-                -- Check number of arguments to the constructor
-                local nargs = select("#", ...)
-                if nargs == 1 and type(select(1, ...)) == "number" and select(1, ...) == 1.0 then
-                    -- If the argument is 1.0, use the identity matrix constructor
-                    return ffi.C.glm_identity_mat4()
-                else
-                    -- Otherwise, you could call a default constructor or handle other cases
-                    return ffi.new(ct, ...)
-                end
-            end
-        }),
-        ray_circle_intersection = function(ray_origin, ray_direction, circle_center, circle_radius)
-            local intersection = ffi.new("vec2")
-            local hit = ffi.C.glm_ray_circle_intersection(ray_origin, ray_direction, circle_center, circle_radius, intersection)
-            return hit, intersection
-        end,
-        ray_line_intersection = function()
-            local intersection = ffi.new("vec2")
-            local hit = ffi.C.glm_ray_line_intersection(ray_origin, ray_direction, p1, p2, intersection)
-            return hit, intersection
-        end,
-        truncate = ffi.C.glm_truncate,
-        normalize = ffi.C.glm_normalize,
-        length = ffi.C.glm_length,
-        length2 = ffi.C.glm_length2,
-        translate = ffi.C.glm_translate,
-        scale = ffi.C.glm_scale,
-    }
-end
-
---local class = require("scripts/middleclass")
 
 local require_middleclass = function()
     local middleclass = {
@@ -306,16 +201,129 @@ local require_middleclass = function()
       return middleclass
 end
 
+local vec2_mt
+vec2_mt = {
+    __index = function(t, field_name)
+        if field_name == "x" then
+            return t[1]
+        elseif field_name == "y" then
+            return t[2]
+        else
+            return nil
+        end
+    end,
+    __add = function(lhs, rhs)
+        local v = {lhs.x + rhs.x, lhs.y + rhs.y}
+        setmetatable(v, vec2_mt)
+        return v
+    end,
+    __sub = function(lhs, rhs)
+        local v = {lhs.x - rhs.x, lhs.y - rhs.y}
+        setmetatable(v, vec2_mt)
+        return v
+    end,
+    __mul = function(lhs, rhs)
+        local v
+        if type(rhs) == "number" then
+            v = {lhs.x * rhs, lhs.y * rhs}
+        elseif type(lhs) == "number" then
+            v = {lhs * rhs.x, lhs * rhs.y}
+        else
+            v = {lhs.x * rhs.x, lhs.y * rhs.y}
+        end
+
+        setmetatable(v, vec2_mt)
+        return v
+    end,
+    __div = function(lhs, rhs)
+        local v
+        if type(rhs) == "number" then
+            v = {lhs.x / rhs, lhs.y / rhs}
+        elseif type(lhs) == "number" then
+            v = {lhs / rhs.x, lhs / rhs.y}
+        else
+            v = {lhs.x / rhs.x, lhs.y / rhs.y}
+        end
+
+        setmetatable(v, vec2_mt)
+        return v
+    end,
+}
+
+local function vec2_dot(a, b)
+    return a[1] * b[1] + a[2] * b[2]
+end
+
+local vec2 = function(x, y)
+    local t = {x, y}
+    setmetatable(t, vec2_mt)
+    return t
+end
+
+local function vec2_length2(v)
+    return vec2_dot(v, v)
+end
+
+local function vec2_length(v)
+    return math.sqrt(vec2_length2(v))
+end
+
+local function vec2_normalize(v)
+    local len = vec2_length(v)
+    if len == 0 then
+        return nil -- Cannot normalize a zero vector
+    end
+    return vec2(v.x / len, v.y / len)
+end
+
+local function truncate(v, max_length)
+    local length = vec2_length(v)
+    if length > max_length and length > 0 then
+        return v / length * max_length
+    else
+        return v
+    end
+end
+
+local function ray_circle_intersection(ray_origin, ray_direction, circle_center, circle_radius)
+    local ray_dir = vec2_normalize(ray_direction)
+
+    -- Check if origin is inside the circle
+    if vec2_length(ray_origin - circle_center) <= circle_radius then
+        return true, ray_origin
+    end
+
+    -- Compute the nearest point on the ray to the circle's center
+    local t = vec2_dot(circle_center - ray_origin, ray_dir)
+
+    if t < 0.0 then
+        return false
+    end
+
+    local P = ray_origin + t * ray_dir
+
+    -- If the nearest point is inside the circle, calculate intersection
+    if vec2_length(P - circle_center) <= circle_radius then
+        -- Distance from P to circle boundary along the ray
+        local h = math.sqrt(circle_radius^2 - vec2_length2(P - circle_center))
+        local intersection = P - h * ray_dir
+        return true, intersection
+    end
+
+    return false
+end
+
+
 local class = require_middleclass()
 
 
 local Mob = class("Mob")
 function Mob:initialize()
     self.mass = 100
-    self.position = Glm.vec2(0, 0)
-    self.velocity = Glm.vec2(0, 0)
-    self.steering_direction = Glm.vec2(0, 0)
-    self.steering_target = Glm.vec2(0, 0)
+    self.position = vec2(0, 0)
+    self.velocity = vec2(0, 0)
+    self.steering_direction = vec2(0, 0)
+    self.steering_target = vec2(0, 0)
     self.max_force = 30
     self.max_speed = 30
     self.orientation = 0
@@ -341,12 +349,12 @@ end
 local Food = class("Food")
 function Food:initialize()
     self.sprite_id = 0
-    self.position = Glm.vec2(0, 0)
+    self.position = vec2(0, 0)
 end
 
 local Obstacle = class("Obstacle")
 function Obstacle:initialize()
-    self.position = Glm.vec2(0, 0)
+    self.position = vec2(0, 0)
     self.radius = 100
     self.color = Math.Color4f(1, 1, 1, 1)
 end
@@ -372,7 +380,7 @@ local spawn_giraffes = function(engine, game, num_giraffes)
         giraffe.mob.max_force = 1000
         giraffe.mob.max_speed = 300
         giraffe.mob.radius = 20
-        giraffe.mob.position = Glm.vec2(
+        giraffe.mob.position = vec2(
             50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.x - 100),
             50 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.y - 100)
         )
@@ -394,7 +402,7 @@ function on_enter(engine, game)
     -- Spawn lake
     do
         local lake_obstacle = Obstacle:new()
-        lake_obstacle.position = Glm.vec2(
+        lake_obstacle.position = vec2(
             (engine.window_rect.size.x / 2) + 200 * rnd_pcg_nextf(RANDOM_DEVICE) - 100,
             (engine.window_rect.size.y / 2) + 200 * rnd_pcg_nextf(RANDOM_DEVICE) - 100
         )
@@ -406,7 +414,7 @@ function on_enter(engine, game)
     -- Spawn trees
     for _ = 1, 10 do
         local obstacle = Obstacle:new()
-        obstacle.position = Glm.vec2(
+        obstacle.position = vec2(
             10 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.x - 20),
             10 + rnd_pcg_nextf(RANDOM_DEVICE) * (engine.window_rect.size.y - 20)
         )
@@ -422,7 +430,7 @@ function on_enter(engine, game)
     do
         local sprite = Engine.add_sprite(game.sprites, "food", Engine.Color.Pico8.green)
         game_state.food.sprite_id = sprite:identifier()
-        game_state.food.position = Glm.vec2(0.25 * engine.window_rect.size.x, 0.25 * engine.window_rect.size.y)
+        game_state.food.position = vec2(0.25 * engine.window_rect.size.x, 0.25 * engine.window_rect.size.y)
 
         local transform = Glm.mat4(1.0)
         transform = Glm.translate(transform, Glm.vec3(
@@ -440,7 +448,7 @@ function on_enter(engine, game)
     do
         local sprite = Engine.add_sprite(game.sprites, "lion", Engine.Color.Pico8.yellow)
         game_state.lion.sprite_id = sprite:identifier()
-        game_state.lion.mob.position = Glm.vec2(engine.window_rect.size.x * 0.75, engine.window_rect.size.y * 0.75)
+        game_state.lion.mob.position = vec2(engine.window_rect.size.x * 0.75, engine.window_rect.size.y * 0.75)
         game_state.lion.mob.mass = 25
         game_state.lion.mob.max_force = 1000
         game_state.lion.mob.max_speed = 400
@@ -498,7 +506,7 @@ function on_input(engine, game, input_command)
         if input_command.mouse_state.mouse_left_state == Engine.TriggerState.Pressed then
             local x = input_command.mouse_state.mouse_position.x
             local y = engine.window_rect.size.y - input_command.mouse_state.mouse_position.y
-            game_state.food.position = Glm.vec2(x, y)
+            game_state.food.position = vec2(x, y)
 
             local sprite = Engine.get_sprite(game.sprites, game_state.food.sprite_id)
             local transform = Glm.mat4(1.0)
@@ -520,7 +528,7 @@ local update_mob = function(mob, game, dt)
 
     -- lake drags you down
     for _, obstacle in ipairs(game_state.obstacles) do
-        local length = Glm.length(obstacle.position - mob.position)
+        local length = vec2_length(obstacle.position - mob.position)
         if length <= obstacle.radius then
             drag = 10
             break
@@ -528,20 +536,20 @@ local update_mob = function(mob, game, dt)
     end
 
     local drag_force = -drag * mob.velocity
-    local steering_force = Glm.truncate(mob.steering_direction, mob.max_force) + drag_force
+    local steering_force = truncate(mob.steering_direction, mob.max_force) + drag_force
     local acceleration = steering_force / mob.mass
 
-    mob.velocity = Glm.truncate(mob.velocity + acceleration, mob.max_speed)
+    mob.velocity = truncate(mob.velocity + acceleration, mob.max_speed)
     mob.position = mob.position + mob.velocity * dt
 
-    if Glm.length(mob.velocity) > 0.001 then
+    if vec2_length(mob.velocity) > 0.001 then
         mob.orientation = math.atan2(-mob.velocity.x, mob.velocity.y)
     end
 end
 
 local arrival_behavior = function(mob, target_position, speed_ramp_distance)
     local target_offset = target_position - mob.position
-    local distance = Glm.length(target_offset)
+    local distance = vec2_length(target_offset)
     local ramped_speed = mob.max_speed * (distance / speed_ramp_distance)
     local clipped_speed = math.min(ramped_speed, mob.max_speed)
     local desired_velocity = (clipped_speed / distance) * target_offset
@@ -553,11 +561,11 @@ local avoidance_behavior = function(mob, engine, game)
     local look_ahead_distance = 200
 
     local origin = mob.position
-    local target_distance = Glm.length(mob.steering_target - origin)
-    local forward = Glm.normalize(mob.steering_target - origin)
+    local target_distance = vec2_length(mob.steering_target - origin)
+    local forward = vec2_normalize(mob.steering_target - origin)
 
-    local right_vector = Glm.vec2(forward.y, -forward.x)
-    local left_vector = Glm.vec2(-forward.y, forward.x)
+    local right_vector = vec2(forward.y, -forward.x)
+    local left_vector = vec2(-forward.y, forward.x)
 
     local left_start = origin + left_vector * mob.radius
     local right_start = origin + right_vector * mob.radius
@@ -572,9 +580,9 @@ local avoidance_behavior = function(mob, engine, game)
 
     -- check against each obstacle
     for _, obstacle in ipairs(game_state.obstacles) do
-        local did_li, li = Glm.ray_circle_intersection(left_start, forward, obstacle.position, obstacle.radius);
+        local did_li, li = ray_circle_intersection(left_start, forward, obstacle.position, obstacle.radius);
         if did_li then
-            local distance = Glm.length(li - left_start)
+            local distance = vec2_length(li - left_start)
             if distance <= look_ahead_distance and distance < left_intersection_distance then
                 left_intersects = true
                 left_intersection = li
@@ -582,9 +590,9 @@ local avoidance_behavior = function(mob, engine, game)
             end
         end
 
-        local did_ri, ri = Glm.ray_circle_intersection(right_start, forward, obstacle.position, obstacle.radius)
+        local did_ri, ri = ray_circle_intersection(right_start, forward, obstacle.position, obstacle.radius)
         if did_ri then
-            local distance = Glm.length(ri - right_start)
+            local distance = vec2_length(ri - right_start)
             if distance <= look_ahead_distance and distance < right_intersection_distance then
                 right_intersects = true
                 right_intersection = li
@@ -593,11 +601,11 @@ local avoidance_behavior = function(mob, engine, game)
         end
     end
 
-    local avoidance_force = Glm.vec2(0, 0)
+    local avoidance_force = vec2(0, 0)
 
     if right_intersects or left_intersects then
         if target_distance <= left_intersection_distance and target_distance <= right_intersection_distance then
-            return Glm.vec2(0, 0)
+            return vec2(0, 0)
         end
 
         if left_intersection_distance < right_intersection_distance then
@@ -613,22 +621,22 @@ local avoidance_behavior = function(mob, engine, game)
 end
 
 local update_giraffe = function(giraffe, engine, game, dt)
-    local arrival_force = Glm.vec2(0, 0)
+    local arrival_force = vec2(0, 0)
     local arrival_weight = 1
 
-    local flee_force = Glm.vec2(0, 0)
+    local flee_force = vec2(0, 0)
     local flee_weight = 1
 
-    local separation_force = Glm.vec2(0, 0)
+    local separation_force = vec2(0, 0)
     local separation_weight = 10
 
-    local avoidance_force = Glm.vec2(0, 0)
+    local avoidance_force = vec2(0, 0)
     local avoidance_weight = 10
 
     if not giraffe.dead then
         local is_hunted = false
 
-        local distance = Glm.length(game_state.lion.mob.position - giraffe.mob.position)
+        local distance = vec2_length(game_state.lion.mob.position - giraffe.mob.position)
         if distance <= 300 then
             is_hunted = true
         end
@@ -639,10 +647,10 @@ local update_giraffe = function(giraffe, engine, game, dt)
             local steering_target = giraffe.mob.position + flee_direction
             giraffe.mob.steering_target = steering_target
 
-            local desired_velocity = Glm.normalize(flee_direction) * giraffe.mob.max_speed
+            local desired_velocity = vec2_normalize(flee_direction) * giraffe.mob.max_speed
             flee_force = desired_velocity - giraffe.mob.velocity
 
-            local boundary_avoidance_force = Glm.vec2(0, 0)
+            local boundary_avoidance_force = vec2(0, 0)
             local buffer_distance = 100
 
             if giraffe.mob.position.x <= buffer_distance then
@@ -673,7 +681,7 @@ local update_giraffe = function(giraffe, engine, game, dt)
             for _, other_giraffe in ipairs(game_state.giraffes) do
                 if other_giraffe ~= giraffe and not other_giraffe.dead then
                     local offset = other_giraffe.mob.position - giraffe.mob.position
-                    local distance_squared = Glm.length2(offset)
+                    local distance_squared = vec2_length2(offset)
                     local near_distance_squared = (giraffe.mob.radius + other_giraffe.mob.radius) * (giraffe.mob.radius + other_giraffe.mob.radius)
                     if distance_squared <= near_distance_squared then
                         local distance = math.sqrt(distance_squared)
@@ -694,7 +702,7 @@ local update_giraffe = function(giraffe, engine, game, dt)
         end
     end
 
-    giraffe.mob.steering_direction = Glm.truncate(arrival_force + flee_force + separation_force + avoidance_force, giraffe.mob.max_force)
+    giraffe.mob.steering_direction = truncate(arrival_force + flee_force + separation_force + avoidance_force, giraffe.mob.max_force)
 
     update_mob(giraffe.mob, game, dt)
 
@@ -733,7 +741,7 @@ local update_lion = function(lion, engine, game, t, dt)
             local distance = 1000000
             for _, giraffe in ipairs(game_state.giraffes) do
                 if not giraffe.dead then
-                    local d = Glm.length(giraffe.mob.position - lion.mob.position)
+                    local d = vec2_length(giraffe.mob.position - lion.mob.position)
                     if d < distance then
                         distance = d
                         found_giraffe = giraffe
@@ -753,15 +761,15 @@ local update_lion = function(lion, engine, game, t, dt)
     if lion.locked_giraffe then
         lion.mob.steering_target = lion.locked_giraffe.mob.position
 
-        local pursue_force = Glm.vec2(0, 0)
+        local pursue_force = vec2(0, 0)
         local pursue_weight = 1
 
-        local avoidance_force = Glm.vec2(0, 0)
+        local avoidance_force = vec2(0, 0)
         local avoidance_weight = 10
 
         -- Pursue
         do
-            local desired_velocity = Glm.normalize(lion.locked_giraffe.mob.position - lion.mob.position) * lion.mob.max_speed
+            local desired_velocity = vec2_normalize(lion.locked_giraffe.mob.position - lion.mob.position) * lion.mob.max_speed
             pursue_force = desired_velocity - lion.mob.velocity
             pursue_force = pursue_force * pursue_weight
         end
@@ -772,21 +780,21 @@ local update_lion = function(lion, engine, game, t, dt)
             avoidance_force = avoidance_force * avoidance_weight
         end
 
-        lion.mob.steering_direction = Glm.truncate(pursue_force + avoidance_force, lion.mob.max_force)
+        lion.mob.steering_direction = truncate(pursue_force + avoidance_force, lion.mob.max_force)
 
-        if Glm.length(lion.locked_giraffe.mob.position - lion.mob.position) <= lion.mob.radius then
+        if vec2_length(lion.locked_giraffe.mob.position - lion.mob.position) <= lion.mob.radius then
             lion.locked_giraffe.dead = true
             Engine.color_sprite(game.sprites, lion.locked_giraffe.sprite_id, Engine.Color.Pico8.light_gray)
 
             lion.locked_giraffe = nil
             lion.energy = 0
-            lion.mob.steering_direction = Glm.vec2(0, 0)
+            lion.mob.steering_direction = vec2(0, 0)
         else
             lion.energy = lion.energy - dt
             if lion.energy <= 0.0 then
                 lion.locked_giraffe = nil
                 lion.energy = 0.0
-                lion.mob.steering_direction = Glm.vec2(0, 0)
+                lion.mob.steering_direction = vec2(0, 0)
             end
         end
     end
@@ -835,39 +843,39 @@ function render_imgui(engine, game)
 
     if game_state.debug_draw then
         local debug_draw_mob = function(mob)
-            local origin = Glm.vec2(mob.position.x, engine.window_rect.size.y - mob.position.y)
+            local origin = vec2(mob.position.x, engine.window_rect.size.y - mob.position.y)
 
             -- steer
             do
-                local steer = Glm.truncate(mob.steering_direction, mob.max_force)
+                local steer = truncate(mob.steering_direction, mob.max_force)
                 steer.y = steer.y * -1
-                local steer_ratio = Glm.length(steer) / mob.max_force
-                local end_point = origin + Glm.normalize(steer) * (steer_ratio * 100)
+                local steer_ratio = vec2_length(steer) / mob.max_force
+                local end_point = origin + vec2_normalize(steer) * (steer_ratio * 100)
                 draw_list:AddLine(Imgui.Imvec2(origin.x, origin.y), Imgui.Imvec2(end_point.x, end_point.y), Imgui.IM_COL32(255, 0, 0, 255), 1.0)
-                local ss = string.format("steer: %.0f", Glm.length(steer))
+                local ss = string.format("steer: %.0f", vec2_length(steer))
                 draw_list:AddText(Imgui.Imvec2(origin.x, origin.y + 8), Imgui.IM_COL32(255, 0, 0, 255), ss)
             end
 
             -- velocity
             do
-                local vel = Glm.truncate(mob.velocity, mob.max_speed)
+                local vel = truncate(mob.velocity, mob.max_speed)
                 vel.y = vel.y * -1
-                local vel_ratio = Glm.length(vel) / mob.max_speed
-                local end_point = origin + Glm.normalize(vel) * (vel_ratio * 100)
+                local vel_ratio = vec2_length(vel) / mob.max_speed
+                local end_point = origin + vec2_normalize(vel) * (vel_ratio * 100)
                 draw_list:AddLine(Imgui.Imvec2(origin.x, origin.y), Imgui.Imvec2(end_point.x, end_point.y), Imgui.IM_COL32(0, 255, 0, 255), 1.0)
-                local ss = string.format("veloc: %.0f", Glm.length(vel))
+                local ss = string.format("veloc: %.0f", vec2_length(vel))
                 draw_list:AddText(Imgui.Imvec2(origin.x, origin.y + 20), Imgui.IM_COL32(0, 255, 0, 255), ss)
             end
 
             -- avoidance
             if game_state.debug_avoidance then
-                local forward = Glm.normalize(mob.steering_target - mob.position)
+                local forward = vec2_normalize(mob.steering_target - mob.position)
 
                 forward.y = forward.y * -1
                 local look_ahead = origin + forward * 200
 
-                local right_vector = Glm.vec2(-forward.y, forward.x)
-                local left_vector = Glm.vec2(forward.y, -forward.x)
+                local right_vector = vec2(-forward.y, forward.x)
+                local left_vector = vec2(forward.y, -forward.x)
 
                 local left_start = origin + left_vector * mob.radius
                 local left_end = look_ahead + left_vector * mob.radius
@@ -895,7 +903,7 @@ function render_imgui(engine, game)
         do
             debug_draw_mob(game_state.lion.mob)
 
-            local origin = Glm.vec2(game_state.lion.mob.position.x, engine.window_rect.size.y - game_state.lion.mob.position.y)
+            local origin = vec2(game_state.lion.mob.position.x, engine.window_rect.size.y - game_state.lion.mob.position.y)
 
             local ss = string.format("energy: %.0f", game_state.lion.energy)
             draw_list:AddText(Imgui.Imvec2(origin.x, origin.y + 32), Imgui.IM_COL32(255, 0, 0, 255), ss)

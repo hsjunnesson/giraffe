@@ -83,7 +83,7 @@ void game_state_playing_enter(engine::Engine &engine, Game &game) {
     }
 
     // Spawn giraffes
-    spawn_giraffes(engine, game, 100);
+    spawn_giraffes(engine, game, 1000);
 
     // Spawn food
     {
