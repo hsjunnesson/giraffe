@@ -1,5 +1,5 @@
 --local dbg = require("scripts/debugger")
-local profile = require("scripts/profile")
+--local profile = require("scripts/profile")
 
 if jit then
     jit.on()
@@ -250,9 +250,20 @@ vec2_mt = {
     end,
 }
 
-local function vec2_dot(a, b)
-    return a[1] * b[1] + a[2] * b[2]
-end
+local vec3_mt
+vec3_mt = {
+    __index = function(t, field_name)
+        if field_name == "x" then
+            return t[1]
+        elseif field_name == "y" then
+            return t[2]
+        elseif field_name == "z" then
+            return t[3]
+        else
+            return nil
+        end
+    end
+}
 
 local vec2 = function(x, y)
     local t = {x, y}
@@ -260,15 +271,25 @@ local vec2 = function(x, y)
     return t
 end
 
-local function vec2_length2(v)
+local vec3 = function(x, y, z)
+    local t = {x, y, z}
+    setmetatable(t, vec3_mt)
+    return t
+end
+
+local vec2_dot = function(a, b)
+    return a[1] * b[1] + a[2] * b[2]
+end
+
+local vec2_length2 = function(v)
     return vec2_dot(v, v)
 end
 
-local function vec2_length(v)
+local vec2_length = function(v)
     return math.sqrt(vec2_length2(v))
 end
 
-local function vec2_normalize(v)
+local vec2_normalize = function(v)
     local len = vec2_length(v)
     if len == 0 then
         return nil -- Cannot normalize a zero vector
@@ -276,7 +297,58 @@ local function vec2_normalize(v)
     return vec2(v.x / len, v.y / len)
 end
 
-local function truncate(v, max_length)
+local mat4 = function()
+    local mat = {}
+    for i = 1, 16 do
+        mat[i] = 0.0
+    end
+    return mat
+end
+
+local function mat4_index(row, col)
+    return (row - 1) * 4 + col
+end
+
+local function identity_mat4()
+    local mat = mat4()
+
+    for i = 1, 4 do
+        mat[(i - 1) * 4 + i] = 1.0
+    end
+
+    return mat
+end
+
+local function translate(m_in, v)
+    local m = {}
+    for i = 1, 16 do
+        m[i] = m_in[i]
+    end
+        
+    m[13] = m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13]
+    m[14] = m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14]
+    m[15] = m[3] * v.x + m[7] * v.y + m[11] * v.z + m[15]
+    m[16] = m[4] * v.x + m[8] * v.y + m[12] * v.z + m[16]
+
+    return m
+end
+
+local function scale(m_in, v)
+    local m = {}
+    for i = 1, 16 do
+        m[i] = m_in[i]
+    end
+
+    for i = 1, 4 do
+        m[i] = m[i] * v.x
+        m[i + 4] = m[i + 4] * v.y
+        m[i + 8] = m[i + 8] * v.z
+    end
+
+    return m
+end
+
+local truncate = function(v, max_length)
     local length = vec2_length(v)
     if length > max_length and length > 0 then
         return v / length * max_length
@@ -285,7 +357,7 @@ local function truncate(v, max_length)
     end
 end
 
-local function ray_circle_intersection(ray_origin, ray_direction, circle_center, circle_radius)
+local ray_circle_intersection = function(ray_origin, ray_direction, circle_center, circle_radius)
     local ray_dir = vec2_normalize(ray_direction)
 
     -- Check if origin is inside the circle
@@ -431,17 +503,16 @@ function on_enter(engine, game)
         local sprite = Engine.add_sprite(game.sprites, "food", Engine.Color.Pico8.green)
         game_state.food.sprite_id = sprite:identifier()
         game_state.food.position = vec2(0.25 * engine.window_rect.size.x, 0.25 * engine.window_rect.size.y)
-
-        local transform = Glm.mat4(1.0)
-        transform = Glm.translate(transform, Glm.vec3(
+        
+        local transform = identity_mat4()
+        transform = translate(transform, vec3(
             math.floor(game_state.food.position.x - sprite.atlas_frame.rect.size.x * sprite.atlas_frame.pivot.x),
             math.floor(game_state.food.position.y - sprite.atlas_frame.rect.size.y * (1.0 - sprite.atlas_frame.pivot.y)),
             FOOD_Z_LAYER
         ))
-        transform = Glm.scale(transform, Glm.vec3(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
+        transform = scale(transform, vec3(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
 
-        local matrix = Math.matrix4f_from_transform(transform)
-        Engine.transform_sprite(game.sprites, game_state.food.sprite_id, matrix)
+        Engine.transform_sprite(game.sprites, game_state.food.sprite_id, transform)
     end
 
     -- Spawn lion
@@ -509,16 +580,15 @@ function on_input(engine, game, input_command)
             game_state.food.position = vec2(x, y)
 
             local sprite = Engine.get_sprite(game.sprites, game_state.food.sprite_id)
-            local transform = Glm.mat4(1.0)
-            transform = Glm.translate(transform, Glm.vec3(
+            local transform = identity_mat4()
+            transform = translate(transform, vec3(
                 math.floor(game_state.food.position.x - sprite.atlas_frame.rect.size.x * sprite.atlas_frame.pivot.x),
                 math.floor(game_state.food.position.y - sprite.atlas_frame.rect.size.y * (1.0 - sprite.atlas_frame.pivot.y)),
                 FOOD_Z_LAYER
             ))
-            transform = Glm.scale(transform, Glm.vec3(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
+            transform = scale(transform, vec3(sprite.atlas_frame.rect.size.x, sprite.atlas_frame.rect.size.y, 1.0))
 
-            local matrix = Math.matrix4f_from_transform(transform)
-            Engine.transform_sprite(game.sprites, game_state.food.sprite_id, matrix)
+            Engine.transform_sprite(game.sprites, game_state.food.sprite_id, transform)
         end
     end
 end
@@ -620,7 +690,7 @@ local avoidance_behavior = function(mob, engine, game)
     return avoidance_force
 end
 
-local update_giraffe = function(giraffe, engine, game, dt)
+local update_giraffe = function(giraffe, engine, game, dt, ctx)
     local arrival_force = vec2(0, 0)
     local arrival_weight = 1
 
@@ -706,9 +776,10 @@ local update_giraffe = function(giraffe, engine, game, dt)
 
     update_mob(giraffe.mob, game, dt)
 
-    local giraffe_frame = Engine.atlas_frame(game.sprites.atlas, "giraffe")
+--    local giraffe_frame = Engine.atlas_frame(game.sprites.atlas, "giraffe")
+    local giraffe_frame = ctx.giraffe_frame
 
-    local transform = Glm.mat4(1.0)
+    local transform = identity_mat4()
     local flip_x = giraffe.mob.velocity.x <= 0.0
     local flip_y = giraffe.dead == true
 
@@ -723,18 +794,18 @@ local update_giraffe = function(giraffe, engine, game, dt)
         y_offset = y_offset * -1.0
     end
 
-    transform = Glm.translate(transform, Glm.vec3(
+    transform = translate(transform, vec3(
         math.floor(giraffe.mob.position.x - x_offset),
         math.floor(giraffe.mob.position.y - y_offset),
         GIRAFFE_Z_LAYER
     ))
-    transform = Glm.scale(transform, Glm.vec3((flip_x and -1.0 or 1.0) * giraffe_frame.rect.size.x, (flip_y and -1.0 or 1.0) * giraffe_frame.rect.size.y, 1.0))
-
-    local matrix = Math.matrix4f_from_transform(transform)
-    Engine.transform_sprite(game.sprites, giraffe.sprite_id, matrix)
+    transform = scale(transform, vec3((flip_x and -1.0 or 1.0) * giraffe_frame.rect.size.x, (flip_y and -1.0 or 1.0) * giraffe_frame.rect.size.y, 1.0))
+    
+--    Engine.transform_sprite(game.sprites, giraffe.sprite_id, transform)
+    table.insert(ctx.sprite_transforms, {giraffe.sprite_id, transform})
 end
 
-local update_lion = function(lion, engine, game, t, dt)
+local update_lion = function(lion, engine, game, t, dt, ctx)
     if not lion.locked_giraffe then
         if lion.energy >= lion.max_energy then
             local found_giraffe = nil
@@ -801,9 +872,10 @@ local update_lion = function(lion, engine, game, t, dt)
 
     update_mob(lion.mob, game, dt);
 
-    local lion_frame = Engine.atlas_frame(game.sprites.atlas, "lion")
+--    local lion_frame = Engine.atlas_frame(game.sprites.atlas, "lion")
+    local lion_frame = ctx.lion_frame
 
-    local transform = Glm.mat4(1.0)
+    local transform = identity_mat4()
     local flip = lion.locked_giraffe and lion.locked_giraffe.mob.position.x < lion.mob.position.x
 
     local x_offset = lion_frame.rect.size.x * lion_frame.pivot.x
@@ -812,26 +884,33 @@ local update_lion = function(lion, engine, game, t, dt)
         x_offset = x_offset * -1.0
     end
 
-    transform = Glm.translate(transform, Glm.vec3(
+    transform = translate(transform, vec3(
         math.floor(lion.mob.position.x - x_offset),
         math.floor(lion.mob.position.y - lion_frame.rect.size.y * (1.0 - lion_frame.pivot.y)),
         LION_Z_LAYER
     ))
-    transform = Glm.scale(transform, Glm.vec3((flip and -1.0 or 1.0) * lion_frame.rect.size.x, lion_frame.rect.size.y, 1.0))
+    transform = scale(transform, vec3((flip and -1.0 or 1.0) * lion_frame.rect.size.x, lion_frame.rect.size.y, 1.0))
 
-    local matrix = Math.matrix4f_from_transform(transform)
-    Engine.transform_sprite(game.sprites, lion.sprite_id, matrix)
+--    Engine.transform_sprite(game.sprites, lion.sprite_id, transform)
+    table.insert(ctx.sprite_transforms, {lion.sprite_id, transform})
 end
 
 function update(engine, game, t, dt)
+    local ctx = {
+        giraffe_frame = Engine.atlas_frame(game.sprites.atlas, "giraffe"),
+        lion_frame = Engine.atlas_frame(game.sprites.atlas, "lion"),
+        sprite_transforms = {}
+    }
+    
     for _, giraffe in ipairs(game_state.giraffes) do
-        update_giraffe(giraffe, engine, game, dt)
+        update_giraffe(giraffe, engine, game, dt, ctx)
     end
 
-    update_lion(game_state.lion, engine, game, t, dt)
-
-    Engine.update_sprites(game.sprites, t, dt)
-    Engine.commit_sprites(game.sprites)
+    update_lion(game_state.lion, engine, game, t, dt, ctx)
+    
+    Engine.transform_sprites(game.sprites, t, dt, ctx.sprite_transforms)
+--    Engine.update_sprites(game.sprites, t, dt)
+--    Engine.commit_sprites(game.sprites)
 end
 
 function render(engine, game)

@@ -1042,10 +1042,26 @@ int engine_get_sprite(lua_State *L) {
     return 1;
 }
 
+math::Matrix4f get_matrix4f(lua_State *L, int index) {
+    math::Matrix4f matrix;
+
+    if (lua_istable(L, index)) {
+        for (int i = 0; i < 16; ++i) {
+            lua_rawgeti(L, index, i + 1);
+            matrix.m[i] = static_cast<float>(luaL_checknumber(L, -1));
+            lua_pop(L, 1); // Pop the number, keep the matrix table
+        }
+    } else {
+        luaL_error(L, "Expected a table for the matrix");
+    }
+
+    return matrix;
+}
+
 int engine_transform_sprite(lua_State *L) {
     engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 1, SPRITES_METATABLE));
     lua_utilities::Identifier id = lua_utilities::get_identifier(L, 2);
-    math::Matrix4f transform = lua_math::get_matrix4f(L, 3);
+    math::Matrix4f transform = get_matrix4f(L, 3);
     
     engine::transform_sprite(**sprites, id.value, transform);
     return 0;
@@ -1079,6 +1095,64 @@ int engine_render_sprites(lua_State *L) {
     engine::Sprites **sprites = static_cast<engine::Sprites **>(luaL_checkudata(L, 2, SPRITES_METATABLE));
     engine::render_sprites(**engine, **sprites);
     return 0;
+}
+
+int engine_transform_sprites(lua_State *L) {
+    // Check that we have the correct number of arguments
+    if (lua_gettop(L) != 4) {
+        luaL_error(L, "Expected 4 arguments: sprites, t, dt, sprite_transforms");
+    }
+
+    // First argument: Sprites userdata
+    engine::Sprites** sprites = static_cast<engine::Sprites**>(luaL_checkudata(L, 1, SPRITES_METATABLE));
+    
+    // Second argument: time 't'
+    float t = static_cast<float>(luaL_checknumber(L, 2));
+    
+    // Third argument: delta time 'dt'
+    float dt = static_cast<float>(luaL_checknumber(L, 3));
+    
+    // Fourth argument: table of sprite transforms
+    luaL_checktype(L, 4, LUA_TTABLE); // Make sure the fourth argument is a table
+    
+    // Get the length of the table using lua_objlen for LuaJIT
+    int table_length = lua_objlen(L, 4);
+
+    // Iterate over each entry in the table
+    for (int i = 1; i <= table_length; ++i) {
+        // Push the current index onto the stack and get the table at that index
+        lua_rawgeti(L, 4, i);
+
+        // Ensure we have a table at the current index
+        if (lua_istable(L, -1)) {
+            // Get sprite_id, assuming it's at index 1 of the nested table
+            lua_pushinteger(L, 1);
+            lua_gettable(L, -2);
+            lua_utilities::Identifier sprite_id = lua_utilities::get_identifier(L, -1);
+            lua_pop(L, 1); // Pop sprite_id off the stack
+            
+            // Get transform, assuming it's at index 2 of the nested table
+            lua_pushinteger(L, 2);
+            lua_gettable(L, -2);
+            // Here you'd extract the matrix data similar to how you handled it in `engine_transform_sprite`
+            math::Matrix4f transform = lua_engine::get_matrix4f(L, -1);
+            lua_pop(L, 1); // Pop transform off the stack
+            
+            // Now you have sprite_id and transform and can do whatever is necessary with them
+            engine::transform_sprite(**sprites, sprite_id.value, transform);
+        } else {
+            luaL_error(L, "Expected a table for each sprite transform");
+        }
+
+        // Clean up the stack (pop the current sprite transformation table)
+        lua_pop(L, 1);
+    }
+    
+    engine::update_sprites(**sprites, t, dt);
+    engine::commit_sprites(**sprites);
+
+
+    return 0; // Number of return values
 }
 
 int sprite_identifier(lua_State *L) {
@@ -1321,6 +1395,9 @@ void init_module(lua_State *L) {
     
         lua_pushcfunc(L, engine_render_sprites, "engine_render_sprites");
         lua_setfield(L, -2, "render_sprites");
+
+        lua_pushcfunc(L, engine_transform_sprites, "engine_transform_sprites");
+        lua_setfield(L, -2, "transform_sprites");
     }
 
     // atlas.h
