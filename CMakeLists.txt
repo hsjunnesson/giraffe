@@ -138,6 +138,8 @@ elseif(HAS_ANGELSCRIPT)
     list(APPEND SRC_giraffe
         "src/angelscript_game.h"
         "src/angelscript_game.cpp"
+        "src/add_on/scriptmath/scriptmath.h"
+        "src/add_on/scriptmath/scriptmath.cpp"
         "src/add_on/scriptbuilder/scriptbuilder.h"
         "src/add_on/scriptbuilder/scriptbuilder.cpp"
         "src/add_on/scriptstdstring/scriptstdstring_utils.cpp"
