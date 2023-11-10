@@ -120,7 +120,7 @@ void on_enter(engine::Engine@ engine, game::Game@ game) {
     }
 
     // Spawn giraffes
-    spawn_giraffes(engine, game, 10);
+    spawn_giraffes(engine, game, 1000);
 
     // Spawn food
     {

@@ -92,14 +92,6 @@ void render_sprites_wrapper(engine::Engine *engine, engine::Sprites *sprites) {
     engine::render_sprites(*engine, *sprites);
 }
 
-glm::vec2 add_vec2(const glm::vec2 a, const glm::vec2 b) {
-    return a + b;
-}
-
-glm::vec2 sub_vec2(const glm::vec2 a, const glm::vec2 b) {
-    return a - b;
-}
-
 void vec2_default(void *memory) {
     new (memory) glm::vec2();
 }
@@ -182,28 +174,8 @@ void Color4f_Destruct(math::Color4f *obj) {
     obj->~Color4f();
 }
 
-void Vector2_DefaultConstruct(void *memory) {
-    new (memory) math::Vector2(); // Call the default constructor
-}
-
-void Vector2_Construct(int32_t x, int32_t y, void *memory) {
-    new (memory) math::Vector2{x, y};
-}
-
-void Vector2_Destruct(math::Vector2 *obj) {
-    obj->~Vector2();
-}
-
 void Matrix4f_from_mat4(const glm::mat4 mat4, math::Matrix4f *self) {
     new (self) math::Matrix4f(glm::value_ptr(mat4));
-}
-
-void rnd_pcg_t_Construct(rnd_pcg_t *self) {
-    new (self) rnd_pcg_t();
-}
-
-void rnd_pcg_t_Destruct(rnd_pcg_t *self) {
-    self->~rnd_pcg_t();
 }
 
 unsigned int im_col32_wrapper(unsigned int r, unsigned int g, unsigned int b, unsigned int a) {
@@ -346,8 +318,6 @@ void initialize(foundation::Allocator &allocator) {
 
         r = script_engine->RegisterGlobalFunction("vec2 truncate(const vec2 &in, float)", asFUNCTION(truncate), asCALL_CDECL);
         assert(r >= 0);
-//        r = script_engine->RegisterGlobalFunction("bool ray_circle_intersection(vec2, vec2, vec2, float, vec2 &out)", asFUNCTION(ray_circle_intersection), asCALL_CDECL);
-//        assert(r >= 0);
 
         r = script_engine->SetDefaultNamespace("");
         assert(r >= 0);
