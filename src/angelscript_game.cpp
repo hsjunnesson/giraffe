@@ -4,6 +4,8 @@
 
 #include "game.h"
 
+#include "util.h"
+
 #include "array.h"
 #include "memory.h"
 #include "rnd.h"
@@ -32,7 +34,7 @@
 #include "add_on/scriptstdstring/scriptstdstring.h"
 #include <angelscript.h>
 
-#include <cstddef>
+#include <imgui.h>
 
 namespace {
 asIScriptEngine *script_engine = nullptr;
@@ -62,6 +64,10 @@ void print(std::string &msg) {
     log_info("[ANGELSCRIPT] %s", msg.c_str());
 }
 
+const engine::AtlasFrame *atlas_frame_wrapper(const engine::Atlas *atlas, std::string &sprite_name) {
+    return engine::atlas_frame(*atlas, sprite_name.c_str());
+}
+
 engine::Sprite add_sprite_wrapper(engine::Sprites *sprites, std::string &sprite_name, math::Color4f color) {
     return engine::add_sprite(*sprites, sprite_name.c_str(), color);
 }
@@ -72,6 +78,10 @@ void update_sprites_wrapper(engine::Sprites *sprites, float t, float dt) {
 
 void transform_sprite_wrapper(engine::Sprites *sprites, uint64_t sprite_id, math::Matrix4f transform) {
     engine::transform_sprite(*sprites, sprite_id, transform);
+}
+
+void color_sprite_wrapper(engine::Sprites *sprites, uint64_t sprite_id, math::Color4f color) {
+    engine::color_sprite(*sprites, sprite_id, color);
 }
 
 void commit_sprites_wrapper(engine::Sprites *sprites) {
@@ -114,6 +124,10 @@ float vec2_length(const glm::vec2 &v) {
 
 float vec2_length2(const glm::vec2 &v) {
     return glm::length2(v);
+}
+
+float vec2_dot(const glm::vec2 &x, const glm::vec2 &y) {
+    return glm::dot(x, y);
 }
 
 void vec3_default(void *memory) {
@@ -192,6 +206,10 @@ void rnd_pcg_t_Destruct(rnd_pcg_t *self) {
     self->~rnd_pcg_t();
 }
 
+unsigned int im_col32_wrapper(unsigned int r, unsigned int g, unsigned int b, unsigned int a) {
+    return IM_COL32(r, g, b, a);
+}
+
 namespace angelscript {
 
 void initialize(foundation::Allocator &allocator) {
@@ -245,10 +263,12 @@ void initialize(foundation::Allocator &allocator) {
         assert(r >= 0);
         r = script_engine->RegisterObjectProperty("vec2", "float y", asOFFSET(glm::vec2, y));
         assert(r >= 0);
+
         r = script_engine->RegisterObjectBehaviour("vec2", asBEHAVE_CONSTRUCT, "void f()", asFUNCTION(vec2_default), asCALL_CDECL_OBJLAST);
         assert(r >= 0);
         r = script_engine->RegisterObjectBehaviour("vec2", asBEHAVE_CONSTRUCT, "void f(float, float)", asFUNCTION(vec2_construct), asCALL_CDECL_OBJLAST);
         assert(r >= 0);
+
         r = script_engine->RegisterObjectMethod("vec2", "vec2 opAdd(const vec2 &in) const", asFUNCTIONPR(glm::operator+, (const glm::vec2 &, const glm::vec2 &), glm::vec2), asCALL_CDECL_OBJFIRST);
         assert(r >= 0);
         r = script_engine->RegisterObjectMethod("vec2", "vec2 opSub(const vec2 &in) const", asFUNCTIONPR(glm::operator-, (const glm::vec2 &, const glm::vec2 &), glm::vec2), asCALL_CDECL_OBJFIRST);
@@ -257,12 +277,34 @@ void initialize(foundation::Allocator &allocator) {
         assert(r >= 0);
         r = script_engine->RegisterObjectMethod("vec2", "vec2 opMul(const float) const", asFUNCTIONPR(glm::operator*, (const glm::vec2 &, const float), glm::vec2), asCALL_CDECL_OBJFIRST);
         assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 opMul_r(const float) const", asFUNCTIONPR(glm::operator*, (const float, const glm::vec2 &), glm::vec2), asCALL_CDECL_OBJLAST);
+        assert(r >= 0);
         r = script_engine->RegisterObjectMethod("vec2", "vec2 opDiv(const vec2 &in) const", asFUNCTIONPR(glm::operator/, (const glm::vec2 &, const glm::vec2 &), glm::vec2), asCALL_CDECL_OBJFIRST);
         assert(r >= 0);
         r = script_engine->RegisterObjectMethod("vec2", "vec2 opDiv(const float) const", asFUNCTIONPR(glm::operator/, (const glm::vec2 &, const float), glm::vec2), asCALL_CDECL_OBJFIRST);
         assert(r >= 0);
+
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 &opAddAssign(const vec2 &in)", asMETHODPR(glm::vec2, operator+=, (const glm::vec2 &), glm::vec2 &), asCALL_THISCALL);
+        assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 &opSubAssign(const vec2 &in)", asMETHODPR(glm::vec2, operator-=, (const glm::vec2 &), glm::vec2 &), asCALL_THISCALL);
+        assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 &opMulAssign(const vec2 &in)", asMETHODPR(glm::vec2, operator*=, (const glm::vec2 &), glm::vec2 &), asCALL_THISCALL);
+        assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 &opDivAssign(const vec2 &in)", asMETHODPR(glm::vec2, operator/=, (const glm::vec2 &), glm::vec2 &), asCALL_THISCALL);
+        assert(r >= 0);
+
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 &opAddAssign(const float &in)", asMETHODPR(glm::vec2, operator+=, (const float &), glm::vec2 &), asCALL_THISCALL);
+        assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 &opSubAssign(const float &in)", asMETHODPR(glm::vec2, operator-=, (const float &), glm::vec2 &), asCALL_THISCALL);
+        assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 &opMulAssign(const float &in)", asMETHODPR(glm::vec2, operator*=, (const float &), glm::vec2 &), asCALL_THISCALL);
+        assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("vec2", "vec2 &opDivAssign(const float &in)", asMETHODPR(glm::vec2, operator/=, (const float &), glm::vec2 &), asCALL_THISCALL);
+        assert(r >= 0);
+
         r = script_engine->RegisterObjectMethod("vec2", "vec2 &opAssign(const vec2 &in)", asMETHODPR(glm::vec2, operator=, (const glm::vec2 &), glm::vec2 &), asCALL_THISCALL);
         assert(r >= 0);
+
         r = script_engine->RegisterObjectMethod("vec2", "string tostring() const", asFUNCTION(glm_vec2_tostring), asCALL_CDECL_OBJFIRST);
         assert(r >= 0);
         r = script_engine->RegisterGlobalFunction("vec2 normalize(const vec2 &in)", asFUNCTION(vec2_normalize), asCALL_CDECL);
@@ -270,6 +312,8 @@ void initialize(foundation::Allocator &allocator) {
         r = script_engine->RegisterGlobalFunction("float length(const vec2 &in)", asFUNCTION(vec2_length), asCALL_CDECL);
         assert(r >= 0);
         r = script_engine->RegisterGlobalFunction("float length2(const vec2 &in)", asFUNCTION(vec2_length2), asCALL_CDECL);
+        assert(r >= 0);
+        r = script_engine->RegisterGlobalFunction("float dot(const vec2 &in, const vec2 &in)", asFUNCTION(vec2_dot), asCALL_CDECL);
         assert(r >= 0);
 
         r = script_engine->RegisterObjectType("vec3", sizeof(glm::vec3), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS_CAK | asOBJ_APP_CLASS_ALLFLOATS);
@@ -297,6 +341,13 @@ void initialize(foundation::Allocator &allocator) {
         assert(r >= 0);
         r = script_engine->RegisterObjectMethod("mat4", "string tostring() const", asFUNCTION(glm_mat4_tostring), asCALL_CDECL_OBJFIRST);
         assert(r >= 0);
+
+        // util.h
+
+        r = script_engine->RegisterGlobalFunction("vec2 truncate(const vec2 &in, float)", asFUNCTION(truncate), asCALL_CDECL);
+        assert(r >= 0);
+//        r = script_engine->RegisterGlobalFunction("bool ray_circle_intersection(vec2, vec2, vec2, float, vec2 &out)", asFUNCTION(ray_circle_intersection), asCALL_CDECL);
+//        assert(r >= 0);
 
         r = script_engine->SetDefaultNamespace("");
         assert(r >= 0);
@@ -359,11 +410,6 @@ void initialize(foundation::Allocator &allocator) {
 
         r = script_engine->SetDefaultNamespace("");
         assert(r >= 0);
-
-        log_info("offsetof origin: %u", offsetof(math::Rect, origin));
-        log_info("offsetof size: %u", offsetof(math::Rect, size));
-        log_info("asOFFSET origin: %u", asOFFSET(math::Rect, origin));
-        log_info("asOFFSET size: %u", asOFFSET(math::Rect, size));
     }
 
     {
@@ -440,6 +486,12 @@ void initialize(foundation::Allocator &allocator) {
         r = script_engine->RegisterObjectProperty("AtlasFrame", "math::Rect rect", asOFFSET(engine::AtlasFrame, rect));
         assert(r >= 0);
 
+        r = script_engine->RegisterObjectType("Atlas", 0, asOBJ_REF | asOBJ_NOCOUNT);
+        assert(r >= 0);
+
+        r = script_engine->RegisterGlobalFunction("engine::AtlasFrame@ atlas_frame(const engine::Atlas@, string sprite_name)", asFUNCTION(atlas_frame_wrapper), asCALL_CDECL);
+        assert(r >= 0);
+
         // sprites.h
 
         r = script_engine->RegisterObjectType("Sprite", sizeof(engine::Sprite), asOBJ_VALUE | asOBJ_POD | asGetTypeTraits<engine::Sprite>());
@@ -451,9 +503,14 @@ void initialize(foundation::Allocator &allocator) {
 
         r = script_engine->RegisterObjectType("Sprites", 0, asOBJ_REF | asOBJ_NOCOUNT);
         assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Sprites", "engine::Atlas@ atlas", asOFFSET(engine::Sprites, atlas));
+        assert(r >= 0);
+
         r = script_engine->RegisterGlobalFunction("engine::Sprite add_sprite(engine::Sprites@ sprites, string sprite_name, math::Color4f color)", asFUNCTION(add_sprite_wrapper), asCALL_CDECL);
         assert(r >= 0);
         r = script_engine->RegisterGlobalFunction("void transform_sprite(engine::Sprites@ sprites, uint64 sprite_id, math::Matrix4f)", asFUNCTION(transform_sprite_wrapper), asCALL_CDECL);
+        assert(r >= 0);
+        r = script_engine->RegisterGlobalFunction("void color_sprite(engine::Sprites@ sprites, uint64 sprite_id, math::Color4f color)", asFUNCTION(color_sprite_wrapper), asCALL_CDECL);
         assert(r >= 0);
         r = script_engine->RegisterGlobalFunction("void update_sprites(engine::Sprites@ sprites, float t, float dt)", asFUNCTION(update_sprites_wrapper), asCALL_CDECL);
         assert(r >= 0);
@@ -492,6 +549,35 @@ void initialize(foundation::Allocator &allocator) {
         r = script_engine->RegisterGlobalFunction("float rnd_pcg_nextf(rnd_pcg_t@)", asFUNCTION(rnd_pcg_nextf), asCALL_CDECL);
         assert(r >= 0);
         r = script_engine->RegisterGlobalProperty("rnd_pcg_t RANDOM_DEVICE", &random_device);
+        assert(r >= 0);
+    }
+
+    {
+        // imgui.h
+
+        r = script_engine->RegisterObjectType("ImVec2", sizeof(ImVec2), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS_ALLFLOATS | asOBJ_APP_CLASS_CDAK | asGetTypeTraits<ImVec2>());
+        assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("ImVec2", "float x", asOFFSET(ImVec2, x));
+        assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("ImVec2", "float y", asOFFSET(ImVec2, y));
+        assert(r >= 0);
+
+        r = script_engine->RegisterObjectType("ImDrawList", 0, asOBJ_REF | asOBJ_NOCOUNT);
+        assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("ImDrawList", "void AddLine(const ImVec2 &in, const ImVec2 &in, uint, float)", asMETHOD(ImDrawList, AddLine), asCALL_THISCALL);
+        assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("ImDrawList", "void AddCircle(const ImVec2 &in, float, uint, int, float)", asMETHOD(ImDrawList, AddCircle), asCALL_THISCALL);
+        assert(r >= 0);
+
+        r = script_engine->SetDefaultNamespace("ImGui");
+        assert(r >= 0);
+
+        r = script_engine->RegisterGlobalFunction("ImDrawList@ GetForegroundDrawList()", asFUNCTION(ImGui::GetForegroundDrawList), asCALL_CDECL);
+        assert(r >= 0);
+        r = script_engine->RegisterGlobalFunction("uint IM_COL32(int r, int g, int b, int a)", asFUNCTION(im_col32_wrapper), asCALL_CDECL);
+        assert(r >= 0);
+
+        r = script_engine->SetDefaultNamespace("");
         assert(r >= 0);
     }
 
