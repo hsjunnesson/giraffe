@@ -32,6 +32,8 @@
 #include "add_on/scripthandle/scripthandle.h"
 #include "add_on/scriptmath/scriptmath.h"
 
+#include <cstddef>
+
 namespace {
 asIScriptEngine *script_engine = nullptr;
 asIScriptFunction *on_enter_func = nullptr;
@@ -136,6 +138,22 @@ glm::mat4 mat4_translate(const glm::mat4 &mat, const glm::vec3 &vec) {
 
 glm::mat4 mat4_scale(const glm::mat4 &mat, const glm::vec3 &vec) {
     return glm::scale(mat, vec);
+}
+
+std::string glm_mat4_tostring(const glm::mat4 &mat) {
+    std::ostringstream oss;
+    oss << "mat4(";
+    for (int col = 0; col < 4; ++col) {
+        for (int row = 0; row < 4; ++row) {
+            oss << mat[col][row];
+            if (!(col == 3 && row == 3)) // Prevent adding a comma after the last element
+                oss << ", ";
+        }
+        if (col != 3) 
+            oss << "\n";
+    }
+    oss << ")";
+    return oss.str();
 }
 
 void Color4f_DefaultConstruct(void *memory) {
@@ -250,42 +268,37 @@ void initialize(foundation::Allocator &allocator) {
 		r = script_engine->RegisterObjectBehaviour("mat4", asBEHAVE_CONSTRUCT, "void f(float)", asFUNCTION(mat4_construct), asCALL_CDECL_OBJLAST); assert(r >= 0);
         r = script_engine->RegisterGlobalFunction("mat4 translate(const mat4 &in, const vec3 &in)", asFUNCTION(mat4_translate), asCALL_CDECL); assert(r >= 0);
         r = script_engine->RegisterGlobalFunction("mat4 scale(const mat4 &in, const vec3 &in)", asFUNCTION(mat4_scale), asCALL_CDECL); assert(r >= 0);
+        r = script_engine->RegisterObjectMethod("mat4", "string tostring() const", asFUNCTION(glm_mat4_tostring), asCALL_CDECL_OBJFIRST); assert(r >= 0);
 
 		r = script_engine->SetDefaultNamespace(""); assert(r >= 0);
 	}
 
-	{
-		// math.inl
+    {
+        // math.inl
 
-		r = script_engine->SetDefaultNamespace("math"); assert(r >= 0);
+        r = script_engine->SetDefaultNamespace("math"); assert(r >= 0);
 	
-		r = script_engine->RegisterObjectType("Color4f", sizeof(math::Color4f), asOBJ_VALUE | asOBJ_APP_CLASS_ALLFLOATS | asGetTypeTraits<math::Color4f>()); assert(r >= 0);
+        r = script_engine->RegisterObjectType("Color4f", sizeof(math::Color4f), asOBJ_VALUE | asOBJ_APP_CLASS_ALLFLOATS | asGetTypeTraits<math::Color4f>()); assert(r >= 0);
         r = script_engine->RegisterObjectBehaviour("Color4f", asBEHAVE_CONSTRUCT, "void f()", asFUNCTION(Color4f_DefaultConstruct), asCALL_CDECL_OBJLAST); assert(r >= 0);
         r = script_engine->RegisterObjectBehaviour("Color4f", asBEHAVE_CONSTRUCT, "void f(float, float, float, float)", asFUNCTION(Color4f_Construct), asCALL_CDECL_OBJLAST); assert(r >= 0);
         r = script_engine->RegisterObjectBehaviour("Color4f", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(Color4f_Destruct), asCALL_CDECL_OBJLAST); assert(r >= 0);
         r = script_engine->RegisterObjectMethod("Color4f", "bool opEquals(const Color4f &in) const", asMETHOD(math::Color4f, operator==), asCALL_THISCALL); assert(r >= 0);
         r = script_engine->RegisterObjectMethod("Color4f", "bool opNotEquals(const Color4f &in) const", asMETHOD(math::Color4f, operator!=), asCALL_THISCALL); assert(r >= 0);
         r = script_engine->RegisterObjectMethod("Color4f", "Color4f &opAssign(const Color4f &in)", asMETHODPR(math::Color4f, operator=, (const math::Color4f&), math::Color4f&), asCALL_THISCALL); assert(r >= 0);
-		r = script_engine->RegisterObjectProperty("Color4f", "float r", asOFFSET(math::Color4f, r)); assert(r >= 0);
-		r = script_engine->RegisterObjectProperty("Color4f", "float g", asOFFSET(math::Color4f, g)); assert(r >= 0);
-		r = script_engine->RegisterObjectProperty("Color4f", "float b", asOFFSET(math::Color4f, b)); assert(r >= 0);
-		r = script_engine->RegisterObjectProperty("Color4f", "float a", asOFFSET(math::Color4f, a)); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Color4f", "float r", asOFFSET(math::Color4f, r)); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Color4f", "float g", asOFFSET(math::Color4f, g)); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Color4f", "float b", asOFFSET(math::Color4f, b)); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Color4f", "float a", asOFFSET(math::Color4f, a)); assert(r >= 0);
 
-		r = script_engine->RegisterObjectType("Vector2", sizeof(math::Vector2), asOBJ_VALUE | asOBJ_APP_CLASS_ALLINTS | asGetTypeTraits<math::Vector2>()); assert(r >= 0);
-        r = script_engine->RegisterObjectBehaviour("Vector2", asBEHAVE_CONSTRUCT, "void f()", asFUNCTION(Vector2_DefaultConstruct), asCALL_CDECL_OBJLAST); assert(r >= 0);
-        r = script_engine->RegisterObjectBehaviour("Vector2", asBEHAVE_CONSTRUCT, "void f(float, float)", asFUNCTION(Vector2_Construct), asCALL_CDECL_OBJLAST); assert(r >= 0);
-        r = script_engine->RegisterObjectBehaviour("Vector2", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(Vector2_Destruct), asCALL_CDECL_OBJLAST); assert(r >= 0);
-		r = script_engine->RegisterObjectProperty("Vector2", "int32 x", asOFFSET(math::Vector2, x)); assert(r >= 0);
-		r = script_engine->RegisterObjectProperty("Vector2", "int32 y", asOFFSET(math::Vector2, y)); assert(r >= 0);
+        r = script_engine->RegisterObjectType("Vector2", sizeof(math::Vector2), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS_ALLINTS | asOBJ_APP_CLASS_CDAK | asGetTypeTraits<math::Vector2>()); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Vector2", "int32 x", asOFFSET(math::Vector2, x)); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Vector2", "int32 y", asOFFSET(math::Vector2, y)); assert(r >= 0);
 
-		r = script_engine->RegisterObjectType("Vector2f", sizeof(math::Vector2f), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS_ALLFLOATS | asGetTypeTraits<math::Vector2f>()); assert(r >= 0);
-        // r = script_engine->RegisterObjectBehaviour("Vector2f", asBEHAVE_CONSTRUCT, "void f()", asFUNCTION(Vector2f_DefaultConstruct), asCALL_CDECL_OBJLAST); assert(r >= 0);
-        // r = script_engine->RegisterObjectBehaviour("Vector2", asBEHAVE_CONSTRUCT, "void f(float, float)", asFUNCTION(Vector2_Construct), asCALL_CDECL_OBJLAST); assert(r >= 0);
-        // r = script_engine->RegisterObjectBehaviour("Vector2", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(Vector2_Destruct), asCALL_CDECL_OBJLAST); assert(r >= 0);
-		r = script_engine->RegisterObjectProperty("Vector2f", "float x", asOFFSET(math::Vector2f, x)); assert(r >= 0);
-		r = script_engine->RegisterObjectProperty("Vector2f", "float y", asOFFSET(math::Vector2f, y)); assert(r >= 0);
+        r = script_engine->RegisterObjectType("Vector2f", sizeof(math::Vector2f), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS_ALLFLOATS | asOBJ_APP_CLASS_CDAK | asGetTypeTraits<math::Vector2f>()); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Vector2f", "float x", asOFFSET(math::Vector2f, x)); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Vector2f", "float y", asOFFSET(math::Vector2f, y)); assert(r >= 0);
 
-		r = script_engine->RegisterObjectType("Rect", sizeof(math::Rect), asOBJ_VALUE | asOBJ_POD | asGetTypeTraits<math::Rect>()); assert(r >= 0);
+        r = script_engine->RegisterObjectType("Rect", sizeof(math::Rect), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS_CDAK | asGetTypeTraits<math::Rect>()); assert(r >= 0);
 		r = script_engine->RegisterObjectProperty("Rect", "math::Vector2 origin", asOFFSET(math::Rect, origin)); assert(r >= 0);
 		r = script_engine->RegisterObjectProperty("Rect", "math::Vector2 size", asOFFSET(math::Rect, size)); assert(r >= 0);
 
@@ -293,6 +306,11 @@ void initialize(foundation::Allocator &allocator) {
         r = script_engine->RegisterObjectBehaviour("Matrix4f", asBEHAVE_CONSTRUCT, "void f(const glm::mat4 &in)", asFUNCTION(Matrix4f_from_mat4), asCALL_CDECL_OBJLAST); assert(r >= 0);
 
 		r = script_engine->SetDefaultNamespace(""); assert(r >= 0);
+        
+        log_info("offsetof origin: %u", offsetof(math::Rect, origin));
+        log_info("offsetof size: %u", offsetof(math::Rect, size));
+        log_info("asOFFSET origin: %u", asOFFSET(math::Rect, origin));
+        log_info("asOFFSET size: %u", asOFFSET(math::Rect, size));
 	}
 
     {
@@ -337,13 +355,13 @@ void initialize(foundation::Allocator &allocator) {
 
 		r = script_engine->RegisterObjectType("AtlasFrame", 0, asOBJ_REF | asOBJ_NOCOUNT); assert(r >= 0);
         r = script_engine->RegisterObjectProperty("AtlasFrame", "math::Vector2f pivot", asOFFSET(engine::AtlasFrame, pivot)); assert(r >= 0);
-        r = script_engine->RegisterObjectProperty("AtlasFrame", "math::Rect rect", asOFFSET(engine::AtlasFrame, pivot)); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("AtlasFrame", "math::Rect rect", asOFFSET(engine::AtlasFrame, rect)); assert(r >= 0);
 
 		// sprites.h
 
 		r = script_engine->RegisterObjectType("Sprite", sizeof(engine::Sprite), asOBJ_VALUE | asOBJ_POD | asGetTypeTraits<engine::Sprite>()); assert(r >= 0);
 		r = script_engine->RegisterObjectProperty("Sprite", "uint64 id", asOFFSET(engine::Sprite, id)); assert(r >= 0);
-        r = script_engine->RegisterObjectProperty("Sprite", "engine::AtlasFrame atlas_frame", asOFFSET(engine::Sprite, atlas_frame)); assert(r >= 0);
+        r = script_engine->RegisterObjectProperty("Sprite", "engine::AtlasFrame@ atlas_frame", asOFFSET(engine::Sprite, atlas_frame)); assert(r >= 0);
 
 		r = script_engine->RegisterObjectType("Sprites", 0, asOBJ_REF | asOBJ_NOCOUNT); assert(r >= 0);
 		r = script_engine->RegisterGlobalFunction("engine::Sprite add_sprite(engine::Sprites@ sprites, string sprite_name, math::Color4f color)", asFUNCTION(add_sprite_wrapper), asCALL_CDECL); assert(r >= 0);
