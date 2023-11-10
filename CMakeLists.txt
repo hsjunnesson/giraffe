@@ -44,10 +44,10 @@ set(SRC_giraffe
     "src/util.h"
 )
 
-set(LUA_VERSION "LUA" CACHE STRING "Selected Lua version")
-set_property(CACHE LUA_VERSION PROPERTY STRINGS LUA51 LUAJIT LUAU)
+set(SCRIPT "LUA" CACHE STRING "Selected script language")
+set_property(CACHE SCRIPT PROPERTY STRINGS LUA51 LUAJIT LUAU ANGELSCRIPT)
 
-if(LUA_VERSION STREQUAL "LUA51")
+if(SCRIPT STREQUAL "LUA51")
     message(STATUS "Compiling with Lua 5.1")
     set(HAS_LUA True)
     set(SRC_LUA
@@ -107,12 +107,12 @@ if(LUA_VERSION STREQUAL "LUA51")
     )
 
     list(APPEND SRC_giraffe ${SRC_LUA})
-elseif(LUA_VERSION STREQUAL "LUAJIT")
+elseif(SCRIPT STREQUAL "LUAJIT")
     message(STATUS "Compiling with LuaJIT")
     set(HAS_LUA True)
     find_package(PkgConfig REQUIRED)  
     pkg_check_modules(LuaJIT REQUIRED IMPORTED_TARGET luajit)
-elseif(LUA_VERSION STREQUAL "LUAU")
+elseif(SCRIPT STREQUAL "LUAU")
     message(STATUS "Compiling with Luau")
     set(HAS_LUA True)
     set(LUAU_EXTERN_C ON CACHE BOOL "Use extern C for all APIs")
@@ -121,13 +121,34 @@ elseif(LUA_VERSION STREQUAL "LUAU")
         GIT_REPOSITORY https://github.com/luau-lang/luau.git
     )
     FetchContent_MakeAvailable(Luau)
+elseif(SCRIPT STREQUAL "ANGELSCRIPT")
+    message(STATUS "Compiling with Angelscript")
+    set(HAS_ANGELSCRIPT True)
+    find_package(Angelscript CONFIG REQUIRED)
 endif()
 
-if (HAS_LUA)
+if(HAS_LUA)
     list(FILTER SRC_giraffe EXCLUDE REGEX "src/game_state_playing.cpp")
     list(APPEND SRC_giraffe
         "src/if_game.h"
         "src/if_game.cpp"
+    )
+elseif(HAS_ANGELSCRIPT)
+    list(FILTER SRC_giraffe EXCLUDE REGEX "src/game_state_playing.cpp")
+    list(APPEND SRC_giraffe
+        "src/angelscript_game.h"
+        "src/angelscript_game.cpp"
+        "src/add_on/scriptmath/scriptmath.h"
+        "src/add_on/scriptmath/scriptmath.cpp"
+        "src/add_on/scriptbuilder/scriptbuilder.h"
+        "src/add_on/scriptbuilder/scriptbuilder.cpp"
+        "src/add_on/scriptstdstring/scriptstdstring_utils.cpp"
+        "src/add_on/scriptstdstring/scriptstdstring.h"
+        "src/add_on/scriptstdstring/scriptstdstring.cpp"
+        "src/add_on/scriptarray/scriptarray.h"
+        "src/add_on/scriptarray/scriptarray.cpp"
+        "src/add_on/scripthandle/scripthandle.h"
+        "src/add_on/scripthandle/scripthandle.cpp"
     )
 endif()
 
@@ -136,7 +157,7 @@ add_executable(${PROJECT_NAME}
     ${SRC_giraffe}
 )
 
-if(LUA_VERSION STREQUAL "LUA51")
+if(SCRIPT STREQUAL "LUA51")
     target_sources(${PROJECT_NAME} PRIVATE ${SRC_LUA})
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA51)
@@ -145,7 +166,7 @@ if(LUA_VERSION STREQUAL "LUA51")
     if (MSVC)
         source_group("Lua" FILES ${SRC_LUA})
     endif()
-elseif(LUA_VERSION STREQUAL "LUAJIT")
+elseif(SCRIPT STREQUAL "LUAJIT")
     target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::LuaJIT)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUAJIT)
@@ -157,7 +178,7 @@ elseif(LUA_VERSION STREQUAL "LUAJIT")
     if (MSVC)
         source_group("LuaJIT" FILES ${LUAJIT_HEADERS})
     endif()
-elseif(LUA_VERSION STREQUAL "LUAU")
+elseif(SCRIPT STREQUAL "LUAU")
     target_link_libraries(${PROJECT_NAME} PRIVATE Luau.Compiler)
     target_link_libraries(${PROJECT_NAME} PRIVATE Luau.VM)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_LUA)
@@ -165,6 +186,9 @@ elseif(LUA_VERSION STREQUAL "LUAU")
     target_include_directories(${PROJECT_NAME} PRIVATE ${Luau_SOURCE_DIR}/Common/include)
     target_include_directories(${PROJECT_NAME} PRIVATE ${Luau_SOURCE_DIR}/Compiler/include)
     target_include_directories(${PROJECT_NAME} PRIVATE ${Luau_SOURCE_DIR}/VM/include)
+elseif(SCRIPT STREQUAL "ANGELSCRIPT")
+    target_link_libraries(${PROJECT_NAME} PRIVATE Angelscript::angelscript)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_ANGELSCRIPT)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)

@@ -16,6 +16,8 @@
 
 #if defined(HAS_LUA)
 #include "if_game.h"
+#elif defined(HAS_ANGELSCRIPT)
+#include "angelscript_game.h"
 #endif
 
 namespace game {
@@ -184,6 +186,8 @@ void transition(engine::Engine &engine, void *game_object, AppState app_state) {
 
 #if defined(HAS_LUA)
         lua::initialize(game->allocator);
+#elif defined(HAS_ANGELSCRIPT)
+        angelscript::initialize(game->allocator);
 #endif
 
         transition(engine, game_object, AppState::Playing);
@@ -203,6 +207,8 @@ void transition(engine::Engine &engine, void *game_object, AppState app_state) {
         
 #if defined(HAS_LUA)
         lua::close();
+#elif defined(HAS_ANGELSCRIPT)
+        angelscript::close();
 #endif
 
         engine::terminate(engine);
