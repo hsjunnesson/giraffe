@@ -45,7 +45,7 @@ set(SRC_giraffe
 )
 
 set(SCRIPT "LUA" CACHE STRING "Selected script language")
-set_property(CACHE SCRIPT PROPERTY STRINGS LUA51 LUAJIT LUAU ANGELSCRIPT)
+set_property(CACHE SCRIPT PROPERTY STRINGS LUA51 LUAJIT LUAU ANGELSCRIPT ZIG)
 
 if(SCRIPT STREQUAL "LUA51")
     message(STATUS "Compiling with Lua 5.1")
@@ -125,6 +125,11 @@ elseif(SCRIPT STREQUAL "ANGELSCRIPT")
     message(STATUS "Compiling with Angelscript")
     set(HAS_ANGELSCRIPT True)
     find_package(Angelscript CONFIG REQUIRED)
+elseif(SCRIPT STREQUAL "ZIG")
+    message(STATUS "Compiling with Zig")
+    set(HAS_ZIG True)
+    find_program(ZIG_EXE "zig.exe" REQUIRED)
+    get_filename_component(ZIG_DIR ${ZIG_EXE} DIRECTORY True)
 endif()
 
 if(HAS_LUA)
@@ -149,6 +154,14 @@ elseif(HAS_ANGELSCRIPT)
         "src/add_on/scriptarray/scriptarray.cpp"
         "src/add_on/scripthandle/scripthandle.h"
         "src/add_on/scripthandle/scripthandle.cpp"
+    )
+elseif(HAS_ZIG)
+    list(FILTER SRC_giraffe EXCLUDE REGEX "src/game_state_playing.cpp")
+    list(APPEND SRC_giraffe
+        "src/zig_game.h"
+        "src/zig_game.cpp"
+        "src/zig_includes.h"
+        "scripts/script.zig"
     )
 endif()
 
@@ -189,6 +202,20 @@ elseif(SCRIPT STREQUAL "LUAU")
 elseif(SCRIPT STREQUAL "ANGELSCRIPT")
     target_link_libraries(${PROJECT_NAME} PRIVATE Angelscript::angelscript)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_ANGELSCRIPT)
+elseif(SCRIPT STREQUAL "ZIG")
+    add_custom_command(
+        TARGET ${PROJECT_NAME}
+        PRE_LINK
+        COMMENT "Compiling zig.lib"
+        COMMAND ${ZIG_EXE} build-lib -static -femit-bin=${CMAKE_CURRENT_BINARY_DIR}/zig.lib -O Debug -target native-windows-msvc -fcompiler-rt -lc -I${CMAKE_CURRENT_SOURCE_DIR}/src -I${CMAKE_CURRENT_SOURCE_DIR}/chocolate ${CMAKE_CURRENT_SOURCE_DIR}/scripts/script.zig
+        BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/zig.lib
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/scripts/script.zig
+    )
+
+    include_directories(SYSTEM ${ZIG_DIR}/lib)
+
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_ZIG)
+    target_link_libraries(${PROJECT_NAME} PRIVATE zig ntdll.lib)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE chocolate)

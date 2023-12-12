@@ -18,6 +18,8 @@
 #include "if_game.h"
 #elif defined(HAS_ANGELSCRIPT)
 #include "angelscript_game.h"
+#elif defined(HAS_ZIG)
+#include "zig_game.h"
 #endif
 
 namespace game {
@@ -188,6 +190,8 @@ void transition(engine::Engine &engine, void *game_object, AppState app_state) {
         lua::initialize(game->allocator);
 #elif defined(HAS_ANGELSCRIPT)
         angelscript::initialize(game->allocator);
+#elif defined(HAS_ZIG)
+        zig::initialize(game->allocator);
 #endif
 
         transition(engine, game_object, AppState::Playing);
