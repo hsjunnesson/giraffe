@@ -20,9 +20,11 @@ For the cmake dependencies, use something like VCPKG and install the following p
 - imgui[core,opengl3-binding,glfw-binding]
 - backward-cpp
 
-If you set the `SCRIPT` property you can select a scripting language, instead of the C++ reference implementation. Available options are `LUA51` (plain vanilla Lua 5.1), `LUAJIT`, `LUAU`, or `ANGELSCRIPT`.
+If you set the `SCRIPT` property you can select a scripting language, instead of the C++ reference implementation. Available options are `LUA51` (plain vanilla Lua 5.1), `LUAJIT`, `LUAU`, `ANGELSCRIPT`, or `ZIG`.
 
 For `LUAJIT`, you will need to have PkgConfig installed to manage the dependency.
+
+For `ZIG`, you will need to download and unzip the Zig installation somewhere, and add the directory that contains `zig.exe` to your path.
 
 Example make and build:
 
